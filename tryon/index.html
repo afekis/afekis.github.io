@@ -42,7 +42,7 @@
 </style>
 </head>
 <body>
-<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v5</span></header>
+<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v6</span></header>
 <main>
   <section class="card" id="topBox">
     <div class="row" style="margin-top:0;align-items:center">
@@ -51,7 +51,7 @@
     </div>
     <div class="drop" id="drop">
       <b>Pinterest yoki istalgan saytdan:</b> rasm ustida o'ng tugma → <b>“Rasmni nusxalash” (Copy image)</b> → shu yerda <b>Ctrl+V</b>.<br>
-      Yoki rasmni shu yerga sudrab tashlang, yoki bosib kompyuterdan tanlang.
+      Model kiyib turgan rasm ham bo'ladi — AI kiyimni o'zi ajratib oladi.<br>Yoki rasmni shu yerga sudrab tashlang, yoki bosib tanlang.
     </div>
     <input type="file" id="file" accept="image/*" hidden>
     <div class="row"><input type="text" id="url" placeholder="yoki rasm havolasini qo'ying (https://...)"><button class="sec" id="loadUrl">Qo'shish</button></div>
@@ -104,24 +104,83 @@ function loadImage(src, fromUser) {
   img.src = src;
 }
 
-function processGarment() {
+// ---------- AI: rasmdagi odam va kiyimni aniqlash ----------
+let visionP = null, imgPoseP = null, segP = null;
+const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const SEG_MODEL = "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite";
+function vision() {
+  return visionP ||= (async () => { const m = await import(MP); return { m, fs: await m.FilesetResolver.forVisionTasks(MP + "/wasm") }; })();
+}
+async function create(Cls, opts) {
+  const { m, fs } = await vision();
+  try { return await m[Cls].createFromOptions(fs, opts("GPU")); }
+  catch (e) { return await m[Cls].createFromOptions(fs, opts("CPU")); }
+}
+const imgPose = () => imgPoseP ||= create("PoseLandmarker", d => ({ baseOptions: { modelAssetPath: POSE_MODEL, delegate: d }, runningMode: "IMAGE", numPoses: 1 }));
+const segmenter = () => segP ||= create("ImageSegmenter", d => ({ baseOptions: { modelAssetPath: SEG_MODEL, delegate: d }, runningMode: "IMAGE", outputCategoryMask: true, outputConfidenceMasks: false }));
+
+let gPose = null;   // kiyim rasmidagi modelning tana nuqtalari (bo'lsa)
+let procId = 0;
+
+async function processGarment() {
+  const id = ++procId;
   const img = srcImg, max = 900;
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h);
-  garmentBox = { x: 0, y: 0, w, h }; gAlpha = null; gW = w;
-  $("bgNote").textContent = "";
-  if (true) {
+  garmentBox = { x: 0, y: 0, w, h }; gAlpha = null; gW = w; gPose = null;
+  $("bgNote").textContent = "AI kiyimni ajratyapti…";
+  let d = null;
+  try { d = g.getImageData(0, 0, w, h); } catch (e) {}
+
+  let done = false;
+  if (d) {
     try {
-      const d = g.getImageData(0, 0, w, h);
+      // 1) Rasmda odam bormi? Bo'lsa — faqat kiyimini ajratamiz
+      const pr = (await imgPose()).detect(c);
+      const lm = pr.landmarks && pr.landmarks[0];
+      if (id !== procId) return;
+      if (lm && Math.min(lm[11].visibility ?? 1, lm[12].visibility ?? 1) > 0.5) {
+        const P = lm.map(l => ({ x: l.x * w, y: l.y * h, v: l.visibility ?? 1 }));
+        const seg = (await segmenter()).segment(c);
+        if (id !== procId) return;
+        const mask = seg.categoryMask, mw = mask.width, mh = mask.height, cat = mask.getAsUint8Array();
+        const sm = { y: (P[11].y + P[12].y) / 2 }, sd = Math.hypot(P[11].x - P[12].x, P[11].y - P[12].y);
+        const hipY = Math.min(P[23].v, P[24].v) > 0.3 ? (P[23].y + P[24].y) / 2 : sm.y + sd * 1.5;
+        const torso = hipY - sm.y;
+        const cutTop = type === "pants" ? hipY - torso * 0.25 : -1e9;
+        const cutBottom = type === "top" ? hipY + torso * 0.2 : type === "jacket" ? hipY + torso * 0.45 : 1e9;
+        const px = d.data; let n = 0;
+        for (let y = 0; y < h; y++) {
+          const my = Math.min(mh - 1, (y * mh / h) | 0);
+          for (let x = 0; x < w; x++) {
+            const keep = cat[my * mw + Math.min(mw - 1, (x * mw / w) | 0)] === 4 && y > cutTop && y < cutBottom;
+            if (!keep) px[(y * w + x) * 4 + 3] = 0; else n++;
+          }
+        }
+        seg.close && seg.close();
+        if (n > w * h * 0.01) {
+          softenEdges(d);
+          g.putImageData(d, 0, 0);
+          garmentBox = bbox(d) || garmentBox; gAlpha = d.data; gPose = P; done = true;
+          $("bgNote").textContent = "✅ Kiyim rasmdagi odamdan ajratildi.";
+        }
+      }
+    } catch (e) { console.warn("AI segment:", e); }
+    if (!done && id === procId) {
+      // 2) Odam yo'q — oddiy fonni olib tashlaymiz
+      try { d = g.getImageData(0, 0, w, h); } catch (e) {}
+      g.drawImage(img, 0, 0, w, h); d = g.getImageData(0, 0, w, h);
       removeBackground(d, 40);
       g.putImageData(d, 0, 0);
       garmentBox = bbox(d) || garmentBox; gAlpha = d.data;
-    } catch (e) {
-      $("bgNote").textContent = "Bu sayt rasmga to'liq ruxsat bermadi, fonni olib bo'lmadi. Kengaytma orqali oching yoki rasmni yuklab olib qo'ying.";
+      $("bgNote").textContent = "";
     }
+  } else {
+    $("bgNote").textContent = "Bu sayt rasmga ruxsat bermadi. Rasmni yuklab olib, shu yerga tashlang.";
   }
+  if (id !== procId) return;
   garment = c; fit = analyseGarment();
   const key = img.src;
   let th = [...$("gallery").children].find(t => t.dataset.key === key);
@@ -133,6 +192,14 @@ function processGarment() {
   th._img = img; th.src = safeURL(c);
   [...$("gallery").children].forEach(t => t.classList.toggle("on", t === th));
   msg(running ? "" : "Kiyim tayyor. Endi “Kamerani yoqish” tugmasini bosing.");
+}
+function softenEdges(d) {
+  const { width: w, height: h, data: p } = d, a = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) a[i] = p[i * 4 + 3];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    if (a[i] && (!a[i - 1] || !a[i + 1] || !a[i - w] || !a[i + w])) p[i * 4 + 3] = 140;
+  }
 }
 function safeURL(c){ try { return c.toDataURL("image/png"); } catch { return srcImg.src; } }
 
@@ -196,7 +263,7 @@ window.addEventListener("message", e => {
 });
 document.querySelectorAll("#type button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#type button").forEach(x => x.classList.remove("on"));
-  b.classList.add("on"); type = b.dataset.t;
+  b.classList.add("on"); type = b.dataset.t; if (srcImg && gPose !== null) processGarment();
 });
 
 // ---------- Camera + pose ----------
@@ -245,11 +312,7 @@ $("camBtn").onclick = async () => {
   requestAnimationFrame(loop);
   msg("Tana aniqlash yuklanmoqda… (birinchi marta 5–15 soniya)");
   try {
-    const { PoseLandmarker, FilesetResolver } = await import(MP);
-    const fs = await FilesetResolver.forVisionTasks(MP + "/wasm");
-    const opts = d => ({ baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: d }, runningMode: "VIDEO", numPoses: 1 });
-    try { landmarker = await PoseLandmarker.createFromOptions(fs, opts("GPU")); }
-    catch (e) { landmarker = await PoseLandmarker.createFromOptions(fs, opts("CPU")); }
+    landmarker = await create("PoseLandmarker", d => ({ baseOptions: { modelAssetPath: POSE_MODEL, delegate: d }, runningMode: "VIDEO", numPoses: 1 }));
     msg(garment ? "" : "Kamera ishlayapti. Endi tepada kiyim tanlang.");
   } catch (e) {
     msg("Tana aniqlash yuklanmadi (internet sekin bo'lishi mumkin). Sahifani yangilab, qayta urinib ko'ring.");
@@ -319,6 +382,7 @@ function drawTri(img, s0, s1, s2, d0, d1, d2) {
   const cx = (d0.x + d1.x + d2.x) / 3, cy = (d0.y + d1.y + d2.y) / 3;
   const ex = p => ({ x: p.x + (p.x - cx) * 0.04, y: p.y + (p.y - cy) * 0.04 });
   const e0 = ex(d0), e1 = ex(d1), e2 = ex(d2);
+  if (![d0, d1, d2].every(q => Number.isFinite(q.x) && Math.abs(q.x) < 2e4 && Math.abs(q.y) < 2e4)) return;
   const den = s0.x * (s1.y - s2.y) + s1.x * (s2.y - s0.y) + s2.x * (s0.y - s1.y);
   if (Math.abs(den) < 1e-6) return;
   const a = (d0.x * (s1.y - s2.y) + d1.x * (s2.y - s0.y) + d2.x * (s0.y - s1.y)) / den;
@@ -347,7 +411,54 @@ function drawWarped(map) {
   }
 }
 
+// 4 nuqtadan 4 nuqtaga perspektiv moslash (homografiya)
+function homography(src, dst) {
+  const A = [], B = [];
+  for (let i = 0; i < 4; i++) {
+    const { x, y } = src[i], { x: u, y: v } = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v);
+  }
+  for (let c = 0; c < 8; c++) {           // Gauss usuli
+    let piv = c;
+    for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    [A[c], A[piv]] = [A[piv], A[c]]; [B[c], B[piv]] = [B[piv], B[c]];
+    if (Math.abs(A[c][c]) < 1e-9) return null;
+    for (let r = 0; r < 8; r++) if (r !== c) {
+      const f = A[r][c] / A[c][c];
+      for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k];
+      B[r] -= f * B[c];
+    }
+  }
+  const h = B.map((b, i) => b / A[i][i]);
+  return (x, y) => { const z = h[6] * x + h[7] * y + 1; return { x: (h[0] * x + h[1] * y + h[2]) / z, y: (h[3] * x + h[4] * y + h[5]) / z }; };
+}
+// Rasmdagi model tanasidan foydalanuvchi tanasiga
+function personMap(p) {
+  const G = gPose, order = (a, b) => a.x < b.x ? [a, b] : [b, a];
+  const ok = (q, i, j) => Math.min(q[i].v, q[j].v) > 0.3;
+  let gi, ui;
+  if (type === "pants") {
+    if (!ok(p, 23, 24)) return msg("Shim uchun belingiz va oyoqlaringiz ko'rinsin."), null;
+    const lo = ok(G, 27, 28) && ok(p, 27, 28) ? [27, 28] : [25, 26];
+    if (!ok(G, ...lo) || !ok(p, ...lo)) return msg("Oyoqlaringiz kameraga ko'rinsin."), null;
+    gi = [23, 24, ...lo]; ui = gi;
+  } else {
+    if (!ok(p, 11, 12)) return msg("Yelkalaringiz kameraga ko'rinsin."), null;
+    if (!ok(G, 23, 24) || !ok(p, 23, 24)) return msg("Belingiz ham kameraga ko'rinsin."), null;
+    gi = [11, 12, 23, 24]; ui = gi;
+  }
+  const [gtl, gtr] = order(G[gi[0]], G[gi[1]]), [gbl, gbr] = order(G[gi[2]], G[gi[3]]);
+  const [utl, utr] = order(p[ui[0]], p[ui[1]]), [ubl, ubr] = order(p[ui[2]], p[ui[3]]);
+  return homography([gtl, gtr, gbr, gbl], [utl, utr, ubr, ubl]);
+}
+
 function drawGarment(p) {
+  if (gPose) {
+    const map = personMap(p);
+    if (!map) return;
+    msg(""); return drawWarped(map);
+  }
   if (!fit) return;
   const sL = p[11], sR = p[12], hL = p[23], hR = p[24], aL = p[27], aR = p[28], kL = p[25], kR = p[26];
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
@@ -410,7 +521,7 @@ $("snap").onclick = () => {
 // Saytga kirgan zahoti kameraga ruxsat so'raladi
 if (!inApp) setTimeout(() => $("camBtn").click(), 300);
 else msg("Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching.");
-window.__afeks = { drawGarment, loadImage, setType: t => (type = t), ctx, out };
+window.__afeks = { setG: (c, P) => { garment = c; garmentBox = { x: 0, y: 0, w: c.width, h: c.height }; gPose = P; fit = {}; }, drawGarment, loadImage, setType: t => (type = t), ctx, out };
 </script>
 </body>
 </html>
