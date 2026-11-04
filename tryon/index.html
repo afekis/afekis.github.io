@@ -64,19 +64,11 @@
     <div class="row">
       <button id="camBtn">📷 Kamerani yoqish</button>
       <button class="sec" id="snap" disabled>Rasmga olish</button>
-      <button class="sec" id="mirror">Ko'zgu: yoqilgan</button>
     </div>
     <div class="seg" id="type">
       <button data-t="top" class="on">Ko'ylak / futbolka</button>
       <button data-t="jacket">Kurtka</button>
       <button data-t="pants">Shim</button>
-    </div>
-    <div class="sliders">
-      <div><label>Kenglik: <span id="scaleV">1.0</span></label><input type="range" id="scale" min="0.6" max="1.8" step="0.02" value="1"></div>
-      <div><label>Uzunlik: <span id="lenV">1.0</span></label><input type="range" id="len" min="0.6" max="1.6" step="0.02" value="1"></div>
-      <div><label>Tepaga / pastga: <span id="offV">0</span></label><input type="range" id="off" min="-0.4" max="0.4" step="0.01" value="0"></div>
-      <div><label>Shaffoflik: <span id="opV">1.0</span></label><input type="range" id="op" min="0.4" max="1" step="0.05" value="1"></div>
-      <div><label><input type="checkbox" id="bgOn" checked> Fonni olib tashlash · aniqlik <span id="tolV">40</span></label><input type="range" id="tol" min="5" max="120" value="40"></div>
     </div>
     <div class="hint">Kameradan 1,5–2 metr uzoqroq turing, yelka va beliningiz ko'rinsin. Kamera tasviri hech qayerga yuborilmaydi.</div>
   </section>
@@ -84,7 +76,7 @@
 <video id="video" playsinline muted></video>
 
 <script type="module">
-import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
 const $ = id => document.getElementById(id);
 const video = $("video"), out = $("out"), ctx = out.getContext("2d");
@@ -119,10 +111,10 @@ function processGarment() {
   const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h);
   garmentBox = { x: 0, y: 0, w, h };
   $("bgNote").textContent = "";
-  if ($("bgOn").checked) {
+  if (true) {
     try {
       const d = g.getImageData(0, 0, w, h);
-      removeBackground(d, +$("tol").value);
+      removeBackground(d, 40);
       g.putImageData(d, 0, 0);
       garmentBox = bbox(d) || garmentBox;
     } catch (e) {
@@ -201,37 +193,49 @@ if (q) { $("url").value = q; loadImage(q); }
 window.addEventListener("message", e => {
   if (e.data && e.data.type === "AFEKS_TRYON_IMG" && e.data.dataUrl) loadImage(e.data.dataUrl);
 });
-$("bgOn").onchange = () => srcImg && processGarment();
-$("tol").oninput = e => { $("tolV").textContent = e.target.value; };
-$("tol").onchange = () => srcImg && processGarment();
-["scale","len","off","op"].forEach(id => $(id).oninput = e => $(id+"V").textContent = (+e.target.value).toFixed(id==="off"?2:1));
 document.querySelectorAll("#type button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#type button").forEach(x => x.classList.remove("on"));
   b.classList.add("on"); type = b.dataset.t;
 });
-$("mirror").onclick = () => { mirror = !mirror; $("mirror").textContent = "Ko'zgu: " + (mirror ? "yoqilgan" : "o'chirilgan"); };
 
 // ---------- Camera + pose ----------
+const inApp = /Instagram|FBAN|FBAV|Telegram|TikTok|Line\//i.test(navigator.userAgent);
 $("camBtn").onclick = async () => {
   if (running) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    return msg(inApp ? "Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching." : "Bu brauzer kamerani qo'llamaydi. Chrome yoki Safari'da oching.");
   $("camBtn").disabled = true;
+  msg("Kameraga ruxsat so'ralmoqda…");
+  let stream = null;
+  for (const c of [{ facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, { facingMode: "user" }, true]) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: c, audio: false }); break; }
+    catch (e) {
+      if (e.name === "NotAllowedError" || e.name === "SecurityError") {
+        $("camBtn").disabled = false;
+        return msg(inApp ? "Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching."
+                         : "Kameraga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosib, kameraga ruxsat bering va sahifani yangilang.");
+      }
+      if (e.name === "NotReadableError") { $("camBtn").disabled = false; return msg("Kamera boshqa dasturda band. Boshqa dasturlarni yopib, qayta urinib ko'ring."); }
+      if (e.name === "NotFoundError") { $("camBtn").disabled = false; return msg("Bu qurilmada kamera topilmadi."); }
+    }
+  }
+  if (!stream) { $("camBtn").disabled = false; return msg("Kamerani yoqib bo'lmadi. Sahifani yangilab, qayta urinib ko'ring."); }
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+  await new Promise(r => video.videoWidth ? r() : (video.onloadedmetadata = r));
+  out.width = video.videoWidth; out.height = video.videoHeight;
+  running = true; $("snap").disabled = false; $("camBtn").textContent = "Kamera yoqilgan";
+  requestAnimationFrame(loop);
+  msg("Tana aniqlash yuklanmoqda… (birinchi marta 5–15 soniya)");
   try {
-    msg("Kameraga ruxsat so'ralmoqda…");
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 960, facingMode: "user" }, audio: false });
-    video.srcObject = stream; await video.play();
-    out.width = video.videoWidth; out.height = video.videoHeight;
-    msg("Tana aniqlash modeli yuklanmoqda…");
-    const fs = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-    landmarker = await PoseLandmarker.createFromOptions(fs, {
-      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
-      runningMode: "VIDEO", numPoses: 1
-    });
-    running = true; $("snap").disabled = false; $("camBtn").textContent = "Kamera yoqilgan";
-    msg(garment ? "" : "Kamera ishlayapti. Endi kiyim rasmini tanlang.");
-    requestAnimationFrame(loop);
+    const { PoseLandmarker, FilesetResolver } = await import(MP);
+    const fs = await FilesetResolver.forVisionTasks(MP + "/wasm");
+    const opts = d => ({ baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: d }, runningMode: "VIDEO", numPoses: 1 });
+    try { landmarker = await PoseLandmarker.createFromOptions(fs, opts("GPU")); }
+    catch (e) { landmarker = await PoseLandmarker.createFromOptions(fs, opts("CPU")); }
+    msg(garment ? "" : "Kamera ishlayapti. Endi tepada kiyim tanlang.");
   } catch (e) {
-    $("camBtn").disabled = false;
-    msg(e.name === "NotAllowedError" ? "Kameraga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering." : "Xatolik: " + e.message);
+    msg("Tana aniqlash yuklanmadi (internet sekin bo'lishi mumkin). Sahifani yangilab, qayta urinib ko'ring.");
   }
 };
 
@@ -245,7 +249,7 @@ function loop() {
   const now = performance.now();
   if (landmarker && video.currentTime !== lastT) {
     lastT = video.currentTime;
-    const res = landmarker.detectForVideo(video, now);
+    let res = {}; try { res = landmarker.detectForVideo(video, now); } catch (e) {}
     const lm = res.landmarks && res.landmarks[0];
     if (lm) {
       const pts = lm.map(l => ({ x: (mirror ? 1 - l.x : l.x) * W, y: l.y * H, v: l.visibility ?? 1 }));
@@ -258,7 +262,7 @@ function loop() {
 }
 
 function drawGarment(p) {
-  const sc = +$("scale").value, ln = +$("len").value, off = +$("off").value;
+  const sc = 1, off = 0;
   const sL = p[11], sR = p[12], hL = p[23], hR = p[24], aL = p[27], aR = p[28];
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -269,7 +273,7 @@ function drawGarment(p) {
     if (Math.min(hL.v, hR.v) < 0.4) return msg("Shim uchun belingiz va oyoqlaringiz ko'rinsin.");
     const hm = mid(hL, hR), am = Math.min(aL.v, aR.v) > 0.3 ? mid(aL, aR) : { x: hm.x, y: hm.y + dist(hL, hR) * 4.2 };
     width = dist(hL, hR) * 2.3 * sc;
-    height = dist(hm, am) * 1.1 * ln;
+    height = width * gh / gw;
     angle = Math.atan2(am.x - hm.x, am.y - hm.y) * -1;
     center = hm; topShift = -0.08;
   } else {
@@ -278,16 +282,14 @@ function drawGarment(p) {
     const hm = Math.min(hL.v, hR.v) > 0.3 ? mid(hL, hR) : { x: sm.x, y: sm.y + dist(sL, sR) * 1.5 };
     const sd = dist(sL, sR);
     width = sd * (type === "jacket" ? 1.95 : 1.75) * sc;
-    const torso = dist(sm, hm);
-    height = Math.max(torso * (type === "jacket" ? 1.35 : 1.25), width * gh / gw * 0.85) * ln;
+    height = width * gh / gw;
     const [a, b] = sL.x < sR.x ? [sL, sR] : [sR, sL];
     angle = Math.atan2(b.y - a.y, b.x - a.x);
     center = sm; topShift = -0.13;   // collar sits a bit above the shoulder line
   }
   msg("");
   ctx.save();
-  ctx.globalAlpha = +$("op").value;
-  ctx.translate(center.x, center.y);
+    ctx.translate(center.x, center.y);
   ctx.rotate(angle);
   ctx.drawImage(garment, garmentBox.x, garmentBox.y, gw, gh, -width / 2, height * (topShift + off), width, height);
   ctx.restore();
