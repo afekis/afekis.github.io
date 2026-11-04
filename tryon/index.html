@@ -42,7 +42,7 @@
 </style>
 </head>
 <body>
-<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span></header>
+<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v5</span></header>
 <main>
   <section class="card" id="topBox">
     <div class="row" style="margin-top:0;align-items:center">
@@ -232,7 +232,9 @@ $("camBtn").onclick = async () => {
     $("camBtn").disabled = false;
     if (lastErr.name === "NotFoundError") return msg("Bu qurilmada kamera topilmadi.");
     if (lastErr.name === "NotReadableError" || lastErr.name === "AbortError")
-      return msg("Kamera band: uni boshqa dastur yoki boshqa brauzer oynasi ishlatyapti (Zoom, Telegram, Skype, boshqa vkladka). Ularni yopib, “Kamerani yoqish” ni qayta bosing.");
+      return msg("Kamera ochilmadi (" + lastErr.name + "). 1) Kamerani ishlatayotgan dasturlarni yoping: Zoom, Telegram, Skype, boshqa vkladkalar. "
+        + "2) Windows: Пуск → Параметры → Конфиденциальность → Камера → “Разрешить приложениям доступ к камере” ni yoqing. 3) Kompyuterni qayta yoqing.");
+    return msg("Kamera ochilmadi (" + lastErr.name + ": " + lastErr.message + ").");
   }
   if (!stream) { $("camBtn").disabled = false; return msg("Kamerani yoqib bo'lmadi. Sahifani yangilab, qayta urinib ko'ring."); }
   video.srcObject = stream;
