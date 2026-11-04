@@ -207,7 +207,7 @@ $("camBtn").onclick = async () => {
     return msg(inApp ? "Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching." : "Bu brauzer kamerani qo'llamaydi. Chrome yoki Safari'da oching.");
   $("camBtn").disabled = true;
   msg("Kameraga ruxsat so'ralmoqda…");
-  let stream = null;
+  let stream = null, lastErr = null;
   for (const c of [{ facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, { facingMode: "user" }, true]) {
     try { stream = await navigator.mediaDevices.getUserMedia({ video: c, audio: false }); break; }
     catch (e) {
@@ -216,9 +216,23 @@ $("camBtn").onclick = async () => {
         return msg(inApp ? "Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching."
                          : "Kameraga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosib, kameraga ruxsat bering va sahifani yangilang.");
       }
-      if (e.name === "NotReadableError") { $("camBtn").disabled = false; return msg("Kamera boshqa dasturda band. Boshqa dasturlarni yopib, qayta urinib ko'ring."); }
-      if (e.name === "NotFoundError") { $("camBtn").disabled = false; return msg("Bu qurilmada kamera topilmadi."); }
+      lastErr = e;   // boshqa sozlama bilan qayta urinib ko'ramiz
     }
+  }
+  if (!stream) {   // har bir kamerani alohida sinab ko'rish
+    try {
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+      for (const c of cams) {
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: c.deviceId } }, audio: false }); break; }
+        catch (e) { lastErr = e; }
+      }
+    } catch (e) {}
+  }
+  if (!stream && lastErr) {
+    $("camBtn").disabled = false;
+    if (lastErr.name === "NotFoundError") return msg("Bu qurilmada kamera topilmadi.");
+    if (lastErr.name === "NotReadableError" || lastErr.name === "AbortError")
+      return msg("Kamera band: uni boshqa dastur yoki boshqa brauzer oynasi ishlatyapti (Zoom, Telegram, Skype, boshqa vkladka). Ularni yopib, “Kamerani yoqish” ni qayta bosing.");
   }
   if (!stream) { $("camBtn").disabled = false; return msg("Kamerani yoqib bo'lmadi. Sahifani yangilab, qayta urinib ko'ring."); }
   video.srcObject = stream;
@@ -391,6 +405,9 @@ $("snap").onclick = () => {
     a.href = URL.createObjectURL(b); a.download = "afeks-kiyib-korish.png"; a.click();
   });
 };
+// Saytga kirgan zahoti kameraga ruxsat so'raladi
+if (!inApp) setTimeout(() => $("camBtn").click(), 300);
+else msg("Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching.");
 window.__afeks = { drawGarment, loadImage, setType: t => (type = t), ctx, out };
 </script>
 </body>
