@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFEKS — Kiyimni kiyib ko'r</title>
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--line:#2a2f3a;--text:#eef1f6;--muted:#9aa3b2;--acc:#ff5a36}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  header b{font-size:20px;letter-spacing:.5px} header span{color:var(--muted);font-size:14px}
+  main{display:flex;flex-direction:column;gap:14px;padding:14px;max-width:1000px;margin:auto}
+  #gallery{display:flex;gap:8px;overflow-x:auto;margin-top:10px}
+  #gallery img{height:110px;border-radius:10px;cursor:pointer;border:3px solid transparent;
+    background:repeating-conic-gradient(#2a2f3a 0 25%,#1f232b 0 50%) 0 0/14px 14px;flex:none}
+  #gallery img.on{border-color:var(--acc)}
+  .btnlink{background:#e60023;color:#fff;text-decoration:none;padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px}
+  .sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:4px 16px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  h3{margin:0 0 10px;font-size:15px}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}
+  .drop.over{border-color:var(--acc);color:var(--text)}
+  #preview{width:100%;max-height:260px;object-fit:contain;margin-top:10px;border-radius:10px;
+    background:repeating-conic-gradient(#2a2f3a 0 25%,#1f232b 0 50%) 0 0/16px 16px;display:none}
+  input[type=text]{flex:1;min-width:0;padding:9px;border-radius:9px;border:1px solid var(--line);background:#11141a;color:var(--text)}
+  button{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+  button.sec{background:#2a2f3a}
+  button:disabled{opacity:.5;cursor:default}
+  .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+  input[type=range]{width:100%}
+  .seg{display:flex;gap:6px;margin-top:6px}
+  .seg button{flex:1;background:#2a2f3a;font-weight:500;padding:8px 4px;font-size:13px}
+  .seg button.on{background:var(--acc)}
+  .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center}
+  canvas#out{width:100%;height:100%;object-fit:contain}
+  #msg{position:absolute;inset:auto 0 0 0;padding:10px 14px;background:rgba(0,0,0,.6);font-size:14px}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
+  video{display:none}
+</style>
+</head>
+<body>
+<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span></header>
+<main>
+  <section class="card" id="topBox">
+    <div class="row" style="margin-top:0;align-items:center">
+      <h3 style="margin:0;flex:1">👕 Kiyimlar</h3>
+      <a class="btnlink" href="https://www.pinterest.com/search/pins/?q=men%20t-shirt%20white%20background" target="_blank" rel="noopener">Pinterest'ni ochish</a>
+    </div>
+    <div class="drop" id="drop">
+      <b>Pinterest yoki istalgan saytdan:</b> rasm ustida o'ng tugma → <b>“Rasmni nusxalash” (Copy image)</b> → shu yerda <b>Ctrl+V</b>.<br>
+      Yoki rasmni shu yerga sudrab tashlang, yoki bosib kompyuterdan tanlang.
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div class="row"><input type="text" id="url" placeholder="yoki rasm havolasini qo'ying (https://...)"><button class="sec" id="loadUrl">Qo'shish</button></div>
+    <div id="gallery"></div>
+    <div class="hint" id="bgNote"></div>
+    <img id="preview" alt="" style="display:none">
+  </section>
+  <section class="card">
+    <div class="stage"><canvas id="out" width="1280" height="960"></canvas><div id="msg">Tepada kiyim tanlang, keyin “Kamerani yoqish” ni bosing.</div></div>
+    <div class="row">
+      <button id="camBtn">📷 Kamerani yoqish</button>
+      <button class="sec" id="snap" disabled>Rasmga olish</button>
+      <button class="sec" id="mirror">Ko'zgu: yoqilgan</button>
+    </div>
+    <div class="seg" id="type">
+      <button data-t="top" class="on">Ko'ylak / futbolka</button>
+      <button data-t="jacket">Kurtka</button>
+      <button data-t="pants">Shim</button>
+    </div>
+    <div class="sliders">
+      <div><label>Kenglik: <span id="scaleV">1.0</span></label><input type="range" id="scale" min="0.6" max="1.8" step="0.02" value="1"></div>
+      <div><label>Uzunlik: <span id="lenV">1.0</span></label><input type="range" id="len" min="0.6" max="1.6" step="0.02" value="1"></div>
+      <div><label>Tepaga / pastga: <span id="offV">0</span></label><input type="range" id="off" min="-0.4" max="0.4" step="0.01" value="0"></div>
+      <div><label>Shaffoflik: <span id="opV">1.0</span></label><input type="range" id="op" min="0.4" max="1" step="0.05" value="1"></div>
+      <div><label><input type="checkbox" id="bgOn" checked> Fonni olib tashlash · aniqlik <span id="tolV">40</span></label><input type="range" id="tol" min="5" max="120" value="40"></div>
+    </div>
+    <div class="hint">Kameradan 1,5–2 metr uzoqroq turing, yelka va beliningiz ko'rinsin. Kamera tasviri hech qayerga yuborilmaydi.</div>
+  </section>
+</main>
+<video id="video" playsinline muted></video>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), out = $("out"), ctx = out.getContext("2d");
+const msg = t => { $("msg").textContent = t; $("msg").style.display = t ? "block" : "none"; };
+
+let srcImg = null;        // original garment image
+let garment = null;       // processed canvas (bg removed)
+let garmentBox = null;    // bounding box of non-transparent pixels
+let type = "top", mirror = true, landmarker = null, running = false, smooth = null;
+
+// ---------- Garment loading ----------
+function loadImage(src, fromUser) {
+  const img = new Image();
+  if (!src.startsWith("data:") && !src.startsWith("blob:")) img.crossOrigin = "anonymous";
+  img.onload = () => { srcImg = img; processGarment(); };
+  img.onerror = () => {
+    if (img.crossOrigin) {           // CORS refused: load without pixel access
+      const i2 = new Image();
+      i2.onload = () => { srcImg = i2; processGarment(); };
+      i2.onerror = () => msg("Rasmni ochib bo'lmadi. Uni kompyuterga saqlab, shu yerga tashlang.");
+      i2.src = src;
+    } else msg("Rasmni ochib bo'lmadi.");
+  };
+  img.src = src;
+}
+
+function processGarment() {
+  const img = srcImg, max = 900;
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h);
+  garmentBox = { x: 0, y: 0, w, h };
+  $("bgNote").textContent = "";
+  if ($("bgOn").checked) {
+    try {
+      const d = g.getImageData(0, 0, w, h);
+      removeBackground(d, +$("tol").value);
+      g.putImageData(d, 0, 0);
+      garmentBox = bbox(d) || garmentBox;
+    } catch (e) {
+      $("bgNote").textContent = "Bu sayt rasmga to'liq ruxsat bermadi, fonni olib bo'lmadi. Kengaytma orqali oching yoki rasmni yuklab olib qo'ying.";
+    }
+  }
+  garment = c;
+  const key = img.src;
+  let th = [...$("gallery").children].find(t => t.dataset.key === key);
+  if (!th) {
+    th = document.createElement("img"); th.dataset.key = key;
+    th.onclick = () => { srcImg = th._img; processGarment(); };
+    $("gallery").prepend(th);
+  }
+  th._img = img; th.src = safeURL(c);
+  [...$("gallery").children].forEach(t => t.classList.toggle("on", t === th));
+  msg(running ? "" : "Kiyim tayyor. Endi “Kamerani yoqish” tugmasini bosing.");
+}
+function safeURL(c){ try { return c.toDataURL("image/png"); } catch { return srcImg.src; } }
+
+// Flood-fill from the borders: removes the plain background around the garment
+function removeBackground(d, tol) {
+  const { width: w, height: h, data: p } = d;
+  const corners = [0, w - 1, (h - 1) * w, h * w - 1];
+  let r = 0, g = 0, b = 0;
+  corners.forEach(i => { r += p[i*4]; g += p[i*4+1]; b += p[i*4+2]; });
+  r /= 4; g /= 4; b /= 4;
+  const t2 = tol * tol * 3, seen = new Uint8Array(w * h), stack = [];
+  const near = i => { const dr = p[i*4]-r, dg = p[i*4+1]-g, db = p[i*4+2]-b; return dr*dr+dg*dg+db*db <= t2 || p[i*4+3] < 20; };
+  for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+  while (stack.length) {
+    const i = stack.pop();
+    if (seen[i] || !near(i)) continue;
+    seen[i] = 1; p[i*4+3] = 0;
+    const x = i % w, y = (i / w) | 0;
+    if (x > 0) stack.push(i - 1); if (x < w - 1) stack.push(i + 1);
+    if (y > 0) stack.push(i - w); if (y < h - 1) stack.push(i + w);
+  }
+  // soften edges
+  for (let i = 0; i < w * h; i++) {
+    if (seen[i]) continue;
+    const x = i % w, y = (i / w) | 0;
+    if ((x > 0 && seen[i-1]) || (x < w-1 && seen[i+1]) || (y > 0 && seen[i-w]) || (y < h-1 && seen[i+w])) p[i*4+3] = 150;
+  }
+}
+function bbox(d) {
+  const { width: w, height: h, data: p } = d;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (p[(y*w+x)*4+3] > 40) {
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+// Inputs: file, drag-drop, paste, URL, ?img=, extension message
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+$("file").onchange = e => e.target.files[0] && loadImage(URL.createObjectURL(e.target.files[0]));
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => {
+  e.preventDefault(); drop.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f) return loadImage(URL.createObjectURL(f));
+  const u = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+  if (u) loadImage(u.trim());
+};
+document.addEventListener("paste", e => {
+  const it = [...e.clipboardData.items].find(i => i.type.startsWith("image/"));
+  if (it) loadImage(URL.createObjectURL(it.getAsFile()));
+});
+$("loadUrl").onclick = () => $("url").value.trim() && loadImage($("url").value.trim());
+const q = new URLSearchParams(location.search).get("img");
+if (q) { $("url").value = q; loadImage(q); }
+window.addEventListener("message", e => {
+  if (e.data && e.data.type === "AFEKS_TRYON_IMG" && e.data.dataUrl) loadImage(e.data.dataUrl);
+});
+$("bgOn").onchange = () => srcImg && processGarment();
+$("tol").oninput = e => { $("tolV").textContent = e.target.value; };
+$("tol").onchange = () => srcImg && processGarment();
+["scale","len","off","op"].forEach(id => $(id).oninput = e => $(id+"V").textContent = (+e.target.value).toFixed(id==="off"?2:1));
+document.querySelectorAll("#type button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#type button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); type = b.dataset.t;
+});
+$("mirror").onclick = () => { mirror = !mirror; $("mirror").textContent = "Ko'zgu: " + (mirror ? "yoqilgan" : "o'chirilgan"); };
+
+// ---------- Camera + pose ----------
+$("camBtn").onclick = async () => {
+  if (running) return;
+  $("camBtn").disabled = true;
+  try {
+    msg("Kameraga ruxsat so'ralmoqda…");
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 960, facingMode: "user" }, audio: false });
+    video.srcObject = stream; await video.play();
+    out.width = video.videoWidth; out.height = video.videoHeight;
+    msg("Tana aniqlash modeli yuklanmoqda…");
+    const fs = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    landmarker = await PoseLandmarker.createFromOptions(fs, {
+      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
+      runningMode: "VIDEO", numPoses: 1
+    });
+    running = true; $("snap").disabled = false; $("camBtn").textContent = "Kamera yoqilgan";
+    msg(garment ? "" : "Kamera ishlayapti. Endi kiyim rasmini tanlang.");
+    requestAnimationFrame(loop);
+  } catch (e) {
+    $("camBtn").disabled = false;
+    msg(e.name === "NotAllowedError" ? "Kameraga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering." : "Xatolik: " + e.message);
+  }
+};
+
+let lastT = -1;
+function loop() {
+  const W = out.width, H = out.height;
+  ctx.save();
+  if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(video, 0, 0, W, H);
+  ctx.restore();
+  const now = performance.now();
+  if (landmarker && video.currentTime !== lastT) {
+    lastT = video.currentTime;
+    const res = landmarker.detectForVideo(video, now);
+    const lm = res.landmarks && res.landmarks[0];
+    if (lm) {
+      const pts = lm.map(l => ({ x: (mirror ? 1 - l.x : l.x) * W, y: l.y * H, v: l.visibility ?? 1 }));
+      smooth = smooth ? smooth.map((s, i) => ({ x: s.x * 0.6 + pts[i].x * 0.4, y: s.y * 0.6 + pts[i].y * 0.4, v: pts[i].v })) : pts;
+    } else smooth = null;
+  }
+  if (garment && smooth) drawGarment(smooth);
+  else if (garment && running) msg("Kameraga to'liq ko'rining (yelka va bel).");
+  requestAnimationFrame(loop);
+}
+
+function drawGarment(p) {
+  const sc = +$("scale").value, ln = +$("len").value, off = +$("off").value;
+  const sL = p[11], sR = p[12], hL = p[23], hR = p[24], aL = p[27], aR = p[28];
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  let center, width, height, angle, topShift;
+  const gw = garmentBox.w, gh = garmentBox.h;
+
+  if (type === "pants") {
+    if (Math.min(hL.v, hR.v) < 0.4) return msg("Shim uchun belingiz va oyoqlaringiz ko'rinsin.");
+    const hm = mid(hL, hR), am = Math.min(aL.v, aR.v) > 0.3 ? mid(aL, aR) : { x: hm.x, y: hm.y + dist(hL, hR) * 4.2 };
+    width = dist(hL, hR) * 2.3 * sc;
+    height = dist(hm, am) * 1.1 * ln;
+    angle = Math.atan2(am.x - hm.x, am.y - hm.y) * -1;
+    center = hm; topShift = -0.08;
+  } else {
+    if (Math.min(sL.v, sR.v) < 0.4) return msg("Yelkalaringiz kameraga ko'rinsin.");
+    const sm = mid(sL, sR);
+    const hm = Math.min(hL.v, hR.v) > 0.3 ? mid(hL, hR) : { x: sm.x, y: sm.y + dist(sL, sR) * 1.5 };
+    const sd = dist(sL, sR);
+    width = sd * (type === "jacket" ? 1.95 : 1.75) * sc;
+    const torso = dist(sm, hm);
+    height = Math.max(torso * (type === "jacket" ? 1.35 : 1.25), width * gh / gw * 0.85) * ln;
+    const [a, b] = sL.x < sR.x ? [sL, sR] : [sR, sL];
+    angle = Math.atan2(b.y - a.y, b.x - a.x);
+    center = sm; topShift = -0.13;   // collar sits a bit above the shoulder line
+  }
+  msg("");
+  ctx.save();
+  ctx.globalAlpha = +$("op").value;
+  ctx.translate(center.x, center.y);
+  ctx.rotate(angle);
+  ctx.drawImage(garment, garmentBox.x, garmentBox.y, gw, gh, -width / 2, height * (topShift + off), width, height);
+  ctx.restore();
+}
+
+$("snap").onclick = () => {
+  try { out.toDataURL(); } catch { return msg("Bu rasm bilan suratga olib bo'lmaydi: rasmni yuklab olib, shu yerga tashlang."); }
+  out.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b); a.download = "afeks-kiyib-korish.png"; a.click();
+  });
+};
+</script>
+</body>
+</html>
