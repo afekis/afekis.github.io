@@ -82,6 +82,7 @@ const $ = id => document.getElementById(id);
 const video = $("video"), out = $("out"), ctx = out.getContext("2d");
 const msg = t => { $("msg").textContent = t; $("msg").style.display = t ? "block" : "none"; };
 
+let gAlpha = null, gW = 0, fit = null;
 let srcImg = null;        // original garment image
 let garment = null;       // processed canvas (bg removed)
 let garmentBox = null;    // bounding box of non-transparent pixels
@@ -109,19 +110,19 @@ function processGarment() {
   const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h);
-  garmentBox = { x: 0, y: 0, w, h };
+  garmentBox = { x: 0, y: 0, w, h }; gAlpha = null; gW = w;
   $("bgNote").textContent = "";
   if (true) {
     try {
       const d = g.getImageData(0, 0, w, h);
       removeBackground(d, 40);
       g.putImageData(d, 0, 0);
-      garmentBox = bbox(d) || garmentBox;
+      garmentBox = bbox(d) || garmentBox; gAlpha = d.data;
     } catch (e) {
       $("bgNote").textContent = "Bu sayt rasmga to'liq ruxsat bermadi, fonni olib bo'lmadi. Kengaytma orqali oching yoki rasmni yuklab olib qo'ying.";
     }
   }
-  garment = c;
+  garment = c; fit = analyseGarment();
   const key = img.src;
   let th = [...$("gallery").children].find(t => t.dataset.key === key);
   if (!th) {
@@ -261,38 +262,126 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// --- Kiyim rasmidan uning yelka, bel va etak nuqtalarini topish ---
+function rowExtent(y) {
+  const B = garmentBox;
+  y = Math.round(Math.min(B.y + B.h - 1, Math.max(B.y, y)));
+  if (!gAlpha) return { l: B.x, r: B.x + B.w };
+  let l = -1, r = -1;
+  for (let x = B.x; x < B.x + B.w; x++) if (gAlpha[(y * gW + x) * 4 + 3] > 60) { if (l < 0) l = x; r = x; }
+  return l < 0 ? { l: B.x, r: B.x + B.w } : { l, r: r + 1 };
+}
+function analyseGarment() {
+  const B = garmentBox, y0 = B.y, y1 = B.y + B.h;
+  // tana qismining kengligi (yenglarsiz): rasmning 55–75% balandligidagi eng tor qator
+  let torso = null;
+  for (let f = 0.55; f <= 0.76; f += 0.03) {
+    const e = rowExtent(y0 + B.h * f);
+    if (!torso || e.r - e.l < torso.r - torso.l) torso = e;
+  }
+  const top = rowExtent(y0 + B.h * 0.03), bottom = rowExtent(y1 - B.h * 0.03);
+  return {
+    torsoL: torso.l, torsoR: torso.r,
+    shoulderY: y0 + B.h * (gAlpha ? 0.09 : 0.12),
+    hemY: y1, topY: y0,
+    waistL: top.l, waistR: top.r, legL: bottom.l, legR: bottom.r
+  };
+}
+
+// garment (x,y) -> ekran: 4 ta tayanch nuqta orqali bilinear moslash
+function makeMap(g, s) {
+  // g: {x0,x1,y0,y1} kiyimdagi to'rtburchak; s: ekrandagi tl,tr,bl,br
+  return (x, y) => {
+    const u = (x - g.x0) / (g.x1 - g.x0), v = (y - g.y0) / (g.y1 - g.y0);
+    const tx = s.tl.x + (s.tr.x - s.tl.x) * u, ty = s.tl.y + (s.tr.y - s.tl.y) * u;
+    const bx = s.bl.x + (s.br.x - s.bl.x) * u, by = s.bl.y + (s.br.y - s.bl.y) * u;
+    return { x: tx + (bx - tx) * v, y: ty + (by - ty) * v };
+  };
+}
+function drawTri(img, s0, s1, s2, d0, d1, d2) {
+  // uchburchakni biroz kengaytirib chizamiz — choklar ko'rinmasin
+  const cx = (d0.x + d1.x + d2.x) / 3, cy = (d0.y + d1.y + d2.y) / 3;
+  const ex = p => ({ x: p.x + (p.x - cx) * 0.04, y: p.y + (p.y - cy) * 0.04 });
+  const e0 = ex(d0), e1 = ex(d1), e2 = ex(d2);
+  const den = s0.x * (s1.y - s2.y) + s1.x * (s2.y - s0.y) + s2.x * (s0.y - s1.y);
+  if (Math.abs(den) < 1e-6) return;
+  const a = (d0.x * (s1.y - s2.y) + d1.x * (s2.y - s0.y) + d2.x * (s0.y - s1.y)) / den;
+  const b = (d0.y * (s1.y - s2.y) + d1.y * (s2.y - s0.y) + d2.y * (s0.y - s1.y)) / den;
+  const c = (d0.x * (s2.x - s1.x) + d1.x * (s0.x - s2.x) + d2.x * (s1.x - s0.x)) / den;
+  const d = (d0.y * (s2.x - s1.x) + d1.y * (s0.x - s2.x) + d2.y * (s1.x - s0.x)) / den;
+  const e = d0.x - a * s0.x - c * s0.y, f = d0.y - b * s0.x - d * s0.y;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.closePath(); ctx.clip();
+  ctx.setTransform(a, b, c, d, e, f);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+function drawWarped(map) {
+  const B = garmentBox, N = 12;
+  const pts = [];
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+    const x = B.x + B.w * i / N, y = B.y + B.h * j / N;
+    pts.push({ s: { x, y }, d: map(x, y) });
+  }
+  const P = (i, j) => pts[j * (N + 1) + i];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const p00 = P(i, j), p10 = P(i + 1, j), p01 = P(i, j + 1), p11 = P(i + 1, j + 1);
+    drawTri(garment, p00.s, p10.s, p11.s, p00.d, p10.d, p11.d);
+    drawTri(garment, p00.s, p11.s, p01.s, p00.d, p11.d, p01.d);
+  }
+}
+
 function drawGarment(p) {
-  const sc = 1, off = 0;
-  const sL = p[11], sR = p[12], hL = p[23], hR = p[24], aL = p[27], aR = p[28];
+  if (!fit) return;
+  const sL = p[11], sR = p[12], hL = p[23], hR = p[24], aL = p[27], aR = p[28], kL = p[25], kR = p[26];
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  let center, width, height, angle, topShift;
-  const gw = garmentBox.w, gh = garmentBox.h;
+  // a dan b tomonga, markazdan k marta uzoqlashtirish
+  const widen = (a, b, k) => { const m = mid(a, b); return [{ x: m.x + (a.x - m.x) * k, y: m.y + (a.y - m.y) * k }, { x: m.x + (b.x - m.x) * k, y: m.y + (b.y - m.y) * k }]; };
+  const order = (a, b) => a.x < b.x ? [a, b] : [b, a];   // ekranda chap, o'ng
+  let map;
 
   if (type === "pants") {
     if (Math.min(hL.v, hR.v) < 0.4) return msg("Shim uchun belingiz va oyoqlaringiz ko'rinsin.");
-    const hm = mid(hL, hR), am = Math.min(aL.v, aR.v) > 0.3 ? mid(aL, aR) : { x: hm.x, y: hm.y + dist(hL, hR) * 4.2 };
-    width = dist(hL, hR) * 2.3 * sc;
-    height = width * gh / gw;
-    angle = Math.atan2(am.x - hm.x, am.y - hm.y) * -1;
-    center = hm; topShift = -0.08;
+    const [hl, hr] = order(hL, hR);
+    let [al, ar] = Math.min(aL.v, aR.v) > 0.3 ? order(aL, aR)
+      : Math.min(kL.v, kR.v) > 0.3 ? order({ x: kL.x, y: kL.y + (kL.y - hL.y) }, { x: kR.x, y: kR.y + (kR.y - hR.y) })
+      : [{ x: hl.x, y: hl.y + dist(hL, hR) * 4.4 }, { x: hr.x, y: hr.y + dist(hL, hR) * 4.4 }];
+    const hipW = dist(hl, hr);
+    const [wl, wr] = widen(hl, hr, 1.75);             // bel kengligi tanaga mos
+    const up = hipW * 0.25;                            // shim beli son bo'g'imidan biroz tepada
+    const legPad = hipW * 0.32;
+    map = makeMap({ x0: fit.waistL, x1: fit.waistR, y0: fit.topY, y1: fit.hemY }, {
+      tl: { x: wl.x, y: wl.y - up }, tr: { x: wr.x, y: wr.y - up },
+      bl: { x: al.x - legPad, y: al.y + hipW * 0.15 }, br: { x: ar.x + legPad, y: ar.y + hipW * 0.15 }
+    });
   } else {
     if (Math.min(sL.v, sR.v) < 0.4) return msg("Yelkalaringiz kameraga ko'rinsin.");
-    const sm = mid(sL, sR);
-    const hm = Math.min(hL.v, hR.v) > 0.3 ? mid(hL, hR) : { x: sm.x, y: sm.y + dist(sL, sR) * 1.5 };
-    const sd = dist(sL, sR);
-    width = sd * (type === "jacket" ? 1.95 : 1.75) * sc;
-    height = width * gh / gw;
-    const [a, b] = sL.x < sR.x ? [sL, sR] : [sR, sL];
-    angle = Math.atan2(b.y - a.y, b.x - a.x);
-    center = sm; topShift = -0.13;   // collar sits a bit above the shoulder line
+    const [sl, sr] = order(sL, sR);
+    const sd = dist(sl, sr);
+    const hipsOk = Math.min(hL.v, hR.v) > 0.3;
+    const [hl, hr] = hipsOk ? order(hL, hR) : [{ x: sl.x + sd * 0.12, y: sl.y + sd * 1.5 }, { x: sr.x - sd * 0.12, y: sr.y + sd * 1.5 }];
+    const k = type === "jacket" ? 1.32 : 1.22;        // yelka bo'g'imidan tana chetigacha
+    const [tl, tr] = widen(sl, sr, k);
+    const hipBodyW = Math.max(dist(hl, hr) * 1.75, sd * k * 0.85);
+    const hm = mid(hl, hr), sm = mid(sl, sr);
+    // tana yo'nalishi (yelkadan belga)
+    const dx = hm.x - sm.x, dy = hm.y - sm.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    // kiyim uzunligi uning o'z nisbatidan: (etak - yelka) / tana kengligi
+    const scale = dist(tl, tr) / (fit.torsoR - fit.torsoL);
+    const len = (fit.hemY - fit.shoulderY) * scale;
+    const lift = sd * 0.06;                            // tikuv yelka chizig'idan biroz tepada
+    const top = { l: { x: tl.x - ux * lift, y: tl.y - uy * lift }, r: { x: tr.x - ux * lift, y: tr.y - uy * lift } };
+    const bc = { x: sm.x + ux * (len - lift), y: sm.y + uy * (len - lift) };
+    const px = -uy, py = ux;                           // tanaga perpendikulyar
+    const half = hipBodyW / 2 * (px * (hr.x - hl.x) + py * (hr.y - hl.y) >= 0 ? 1 : -1);
+    map = makeMap({ x0: fit.torsoL, x1: fit.torsoR, y0: fit.shoulderY, y1: fit.hemY }, {
+      tl: top.l, tr: top.r,
+      bl: { x: bc.x - px * half, y: bc.y - py * half }, br: { x: bc.x + px * half, y: bc.y + py * half }
+    });
   }
   msg("");
-  ctx.save();
-    ctx.translate(center.x, center.y);
-  ctx.rotate(angle);
-  ctx.drawImage(garment, garmentBox.x, garmentBox.y, gw, gh, -width / 2, height * (topShift + off), width, height);
-  ctx.restore();
+  drawWarped(map);
 }
 
 $("snap").onclick = () => {
@@ -302,6 +391,7 @@ $("snap").onclick = () => {
     a.href = URL.createObjectURL(b); a.download = "afeks-kiyib-korish.png"; a.click();
   });
 };
+window.__afeks = { drawGarment, loadImage, setType: t => (type = t), ctx, out };
 </script>
 </body>
 </html>
