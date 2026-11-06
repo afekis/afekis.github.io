@@ -76,7 +76,7 @@
   <section class="card" id="aiBox">
     <div class="row" style="margin-top:0;align-items:center"><h3 style="margin:0;flex:1">🤖 AI (Gemini) bilan haqiqiy almashtirish</h3></div>
     <div class="hint" style="margin-top:0">AI sizning rasmingizdagi <b>sochingizni (yoki kiyimingizni)</b> o'zi almashtirib beradi: yuzingiz o'zgarmaydi, faqat soch yoki kiyim yangi bo'ladi. Avval tepada soch yoki kiyim rasmini tanlang va tugmani bosing (kamera yoqilgan bo'lsin yoki o'z rasmingizni yuklang).</div>
-    <div class="row">
+    <div class="row" id="keyRow">
       <input type="text" id="gKey" placeholder="Gemini API kaliti (AIza...)" autocomplete="off">
       <a class="btnlink" style="background:#2a2f3a" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Kalit olish</a>
     </div>
@@ -583,6 +583,9 @@ $("snap").onclick = () => {
   });
 };
 // ---------- AI (Gemini): sochni / kiyimni haqiqatan almashtirish ----------
+// AFEKS AI server manzili (Cloudflare Worker). Bo'sh bo'lsa — foydalanuvchi o'z kalitini kiritadi.
+const AI_PROXY = "";
+if (AI_PROXY) $("keyRow").style.display = "none";
 const GEMINI_MODELS = ["gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-2.5-flash-image"];
 let selfPhoto = null;
 try { $("gKey").value = localStorage.getItem("afeks_gkey") || ""; } catch (e) {}
@@ -601,7 +604,7 @@ function toJpeg(src, max = 1024) {
 }
 $("aiRun").onclick = async () => {
   const key = $("gKey").value.trim();
-  if (!key) return $("aiNote").textContent = "Avval Gemini API kalitini kiriting (“Kalit olish” tugmasi orqali bepul olasiz).";
+  if (!AI_PROXY && !key) return $("aiNote").textContent = "Avval Gemini API kalitini kiriting (“Kalit olish” tugmasi orqali bepul olasiz).";
   if (!srcImg) return $("aiNote").textContent = "Avval tepada soch yoki kiyim rasmini tanlang.";
   const me = selfPhoto || (running && video.videoWidth ? video : null);
   if (!me) return $("aiNote").textContent = "Kamerani yoqing yoki “O'z rasmimni yuklash” ni bosing.";
@@ -618,6 +621,15 @@ $("aiRun").onclick = async () => {
   $("aiRun").disabled = true; $("aiNote").textContent = "AI ishlayapti… (10–30 soniya)";
   try {
     let lastErr = "";
+    if (AI_PROXY) {
+      const r = await fetch(AI_PROXY, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, person, ref }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.data) throw new Error(j.error || "AI server javob bermadi.");
+      const url = `data:${j.mime};base64,${j.data}`;
+      $("aiImg").src = url; $("aiSave").href = url; $("aiOut").style.display = "block";
+      $("aiNote").textContent = "✅ Tayyor!";
+      return;
+    }
     for (const model of GEMINI_MODELS) {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
