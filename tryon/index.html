@@ -42,7 +42,7 @@
 </style>
 </head>
 <body>
-<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v8</span></header>
+<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v9</span></header>
 <main>
   <section class="card" id="topBox">
     <div class="row" style="margin-top:0;align-items:center">
@@ -584,7 +584,7 @@ $("snap").onclick = () => {
 };
 // ---------- AI (Gemini): sochni / kiyimni haqiqatan almashtirish ----------
 // AFEKS AI server manzili (Cloudflare Worker). Bo'sh bo'lsa — foydalanuvchi o'z kalitini kiritadi.
-const AI_PROXY = "";
+const AI_PROXY = "https://afeks-aiafeks-ai.macbookmmacbook.workers.dev/";
 if (AI_PROXY) $("keyRow").style.display = "none";
 const GEMINI_MODELS = ["gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-2.5-flash-image"];
 let selfPhoto = null;
