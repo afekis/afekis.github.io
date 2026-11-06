@@ -42,7 +42,7 @@
 </style>
 </head>
 <body>
-<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v6</span></header>
+<header><b>AFEKS</b><span>Kiyimni kamerada kiyib ko'r</span><span style="margin-left:auto;font-size:12px">v8</span></header>
 <main>
   <section class="card" id="topBox">
     <div class="row" style="margin-top:0;align-items:center">
@@ -69,8 +69,27 @@
       <button data-t="top" class="on">Ko'ylak / futbolka</button>
       <button data-t="jacket">Kurtka</button>
       <button data-t="pants">Shim</button>
+      <button data-t="hair">💇 Soch</button>
     </div>
     <div class="hint">Kameradan 1,5–2 metr uzoqroq turing, yelka va beliningiz ko'rinsin. Kamera tasviri hech qayerga yuborilmaydi.</div>
+  </section>
+  <section class="card" id="aiBox">
+    <div class="row" style="margin-top:0;align-items:center"><h3 style="margin:0;flex:1">🤖 AI (Gemini) bilan haqiqiy almashtirish</h3></div>
+    <div class="hint" style="margin-top:0">AI sizning rasmingizdagi <b>sochingizni (yoki kiyimingizni)</b> o'zi almashtirib beradi: yuzingiz o'zgarmaydi, faqat soch yoki kiyim yangi bo'ladi. Avval tepada soch yoki kiyim rasmini tanlang va tugmani bosing (kamera yoqilgan bo'lsin yoki o'z rasmingizni yuklang).</div>
+    <div class="row">
+      <input type="text" id="gKey" placeholder="Gemini API kaliti (AIza...)" autocomplete="off">
+      <a class="btnlink" style="background:#2a2f3a" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Kalit olish</a>
+    </div>
+    <div class="row">
+      <button id="aiRun">✨ AI bilan almashtirish</button>
+      <button class="sec" id="aiSelfBtn">O'z rasmimni yuklash</button>
+      <input type="file" id="aiSelf" accept="image/*" hidden>
+    </div>
+    <div class="hint" id="aiNote"></div>
+    <div id="aiOut" style="display:none;margin-top:10px">
+      <img id="aiImg" alt="AI natija" style="width:100%;border-radius:12px">
+      <div class="row"><a class="btnlink" id="aiSave" download="afeks-ai.png" href="#">⬇️ Rasmni saqlash</a></div>
+    </div>
   </section>
 </main>
 <video id="video" playsinline muted></video>
@@ -119,7 +138,7 @@ async function create(Cls, opts) {
 const imgPose = () => imgPoseP ||= create("PoseLandmarker", d => ({ baseOptions: { modelAssetPath: POSE_MODEL, delegate: d }, runningMode: "IMAGE", numPoses: 1 }));
 const segmenter = () => segP ||= create("ImageSegmenter", d => ({ baseOptions: { modelAssetPath: SEG_MODEL, delegate: d }, runningMode: "IMAGE", outputCategoryMask: true, outputConfidenceMasks: false }));
 
-let gPose = null;   // kiyim rasmidagi modelning tana nuqtalari (bo'lsa)
+let gPose = null, gFace = null;   // kiyim rasmidagi modelning tana nuqtalari (bo'lsa)
 let procId = 0;
 
 async function processGarment() {
@@ -129,14 +148,39 @@ async function processGarment() {
   const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h);
-  garmentBox = { x: 0, y: 0, w, h }; gAlpha = null; gW = w; gPose = null;
+  garmentBox = { x: 0, y: 0, w, h }; gAlpha = null; gW = w; gPose = null; gFace = null;
   $("bgNote").textContent = "AI kiyimni ajratyapti…";
   let d = null;
   try { d = g.getImageData(0, 0, w, h); } catch (e) {}
 
   let done = false;
   if (d) {
-    try {
+    if (type === "hair") {
+      // Soch: rasmdan faqat sochni ajratamiz, yuz o'lchamini esa yuz terisidan olamiz
+      try {
+        const seg = (await segmenter()).segment(c);
+        if (id !== procId) return;
+        const mask = seg.categoryMask, mw = mask.width, mh = mask.height, cat = mask.getAsUint8Array();
+        const px = d.data; let n = 0, fx0 = w, fy0 = h, fx1 = -1, fy1 = -1;
+        for (let y = 0; y < h; y++) {
+          const my = Math.min(mh - 1, (y * mh / h) | 0);
+          for (let x = 0; x < w; x++) {
+            const cl = cat[my * mw + Math.min(mw - 1, (x * mw / w) | 0)];
+            if (cl === 3) { if (x < fx0) fx0 = x; if (x > fx1) fx1 = x; if (y < fy0) fy0 = y; if (y > fy1) fy1 = y; }
+            if (cl === 1) n++; else px[(y * w + x) * 4 + 3] = 0;
+          }
+        }
+        seg.close && seg.close();
+        if (n > w * h * 0.005 && fx1 > fx0) {
+          softenEdges(d); g.putImageData(d, 0, 0);
+          garmentBox = bbox(d) || garmentBox; gAlpha = d.data;
+          gFace = { x0: fx0, x1: fx1 + 1, y0: fy0, y1: fy1 + 1 };
+          $("bgNote").textContent = "✅ Soch rasmdan ajratildi.";
+        } else $("bgNote").textContent = "Bu rasmda soch yoki yuz topilmadi. Yuzi to'g'ri ko'rinib turgan rasm tanlang.";
+      } catch (e) { $("bgNote").textContent = "Sochni ajratib bo'lmadi (AI yuklanmadi). Sahifani yangilab ko'ring."; }
+      done = true;
+    }
+    if (!done) try {
       // 1) Rasmda odam bormi? Bo'lsa — faqat kiyimini ajratamiz
       const pr = (await imgPose()).detect(c);
       const lm = pr.landmarks && pr.landmarks[0];
@@ -263,7 +307,7 @@ window.addEventListener("message", e => {
 });
 document.querySelectorAll("#type button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#type button").forEach(x => x.classList.remove("on"));
-  b.classList.add("on"); type = b.dataset.t; if (srcImg && gPose !== null) processGarment();
+  b.classList.add("on"); type = b.dataset.t; if (srcImg) processGarment();
 });
 
 // ---------- Camera + pose ----------
@@ -453,7 +497,27 @@ function personMap(p) {
   return homography([gtl, gtr, gbr, gbl], [utl, utr, ubr, ubl]);
 }
 
+// Sochni foydalanuvchining boshiga joylash
+function drawHair(p) {
+  if (!gFace) return;
+  const ok = i => p[i].v > 0.5;
+  if (!ok(2) || !ok(5)) return msg("Yuzingiz kameraga to'g'ri qarab tursin.");
+  const order = (a, b) => a.x < b.x ? [a, b] : [b, a];
+  const [el, er] = order(p[2], p[5]);
+  const eyeD = Math.hypot(er.x - el.x, er.y - el.y);
+  const W = ok(7) && ok(8) ? Math.max(Math.hypot(p[7].x - p[8].x, p[7].y - p[8].y), eyeD * 1.8) : eyeD * 2.3;   // yuz kengligi
+  const H = W * 1.3;                                          // yuz balandligi (peshona–iyak)
+  const ang = Math.atan2(er.y - el.y, er.x - el.x), cx = Math.cos(ang), sx = Math.sin(ang);
+  const em = { x: (el.x + er.x) / 2, y: (el.y + er.y) / 2 };
+  const at = (u, v) => ({ x: em.x + cx * u - sx * v, y: em.y + sx * u + cx * v });   // yuz koordinatasidan ekranga
+  const top = -H * 0.45, bot = H * 0.55;
+  msg("");
+  drawWarped(makeMap({ x0: gFace.x0, x1: gFace.x1, y0: gFace.y0, y1: gFace.y1 },
+    { tl: at(-W / 2, top), tr: at(W / 2, top), bl: at(-W / 2, bot), br: at(W / 2, bot) }));
+}
+
 function drawGarment(p) {
+  if (type === "hair") return drawHair(p);
   if (gPose) {
     const map = personMap(p);
     if (!map) return;
@@ -518,10 +582,74 @@ $("snap").onclick = () => {
     a.href = URL.createObjectURL(b); a.download = "afeks-kiyib-korish.png"; a.click();
   });
 };
+// ---------- AI (Gemini): sochni / kiyimni haqiqatan almashtirish ----------
+const GEMINI_MODELS = ["gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-2.5-flash-image"];
+let selfPhoto = null;
+try { $("gKey").value = localStorage.getItem("afeks_gkey") || ""; } catch (e) {}
+$("gKey").onchange = () => { try { localStorage.setItem("afeks_gkey", $("gKey").value.trim()); } catch (e) {} };
+$("aiSelfBtn").onclick = () => $("aiSelf").click();
+$("aiSelf").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const i = new Image(); i.onload = () => { selfPhoto = i; $("aiNote").textContent = "✅ Rasmingiz yuklandi. Endi “AI bilan almashtirish” ni bosing."; }; i.src = URL.createObjectURL(f);
+};
+function toJpeg(src, max = 1024) {
+  const w0 = src.videoWidth || src.naturalWidth || src.width, h0 = src.videoHeight || src.naturalHeight || src.height;
+  const k = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas");
+  c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+  c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.9).split(",")[1];
+}
+$("aiRun").onclick = async () => {
+  const key = $("gKey").value.trim();
+  if (!key) return $("aiNote").textContent = "Avval Gemini API kalitini kiriting (“Kalit olish” tugmasi orqali bepul olasiz).";
+  if (!srcImg) return $("aiNote").textContent = "Avval tepada soch yoki kiyim rasmini tanlang.";
+  const me = selfPhoto || (running && video.videoWidth ? video : null);
+  if (!me) return $("aiNote").textContent = "Kamerani yoqing yoki “O'z rasmimni yuklash” ni bosing.";
+  let person, ref;
+  try { person = toJpeg(me); ref = toJpeg(srcImg); }
+  catch (e) { return $("aiNote").textContent = "Bu rasmni AI'ga yuborib bo'lmadi. Rasmni yuklab olib, qaytadan qo'ying."; }
+  const what = {
+    hair: "Replace ONLY the hairstyle of the person in the FIRST image with the hairstyle shown in the SECOND image (same cut, length, volume and hair color). Remove the person's original hair completely where the new style does not cover it.",
+    top: "Dress the person in the FIRST image in the top / shirt shown in the SECOND image, fitted naturally to their body with realistic folds and lighting.",
+    jacket: "Dress the person in the FIRST image in the jacket shown in the SECOND image, fitted naturally to their body with realistic folds and lighting.",
+    pants: "Dress the person in the FIRST image in the trousers shown in the SECOND image, fitted naturally to their body."
+  }[type];
+  const prompt = what + " Keep the person's face, identity, skin tone, expression, pose, body and background exactly the same. Photorealistic result. Return one image.";
+  $("aiRun").disabled = true; $("aiNote").textContent = "AI ishlayapti… (10–30 soniya)";
+  try {
+    let lastErr = "";
+    for (const model of GEMINI_MODELS) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "image/jpeg", data: person } }, { inline_data: { mime_type: "image/jpeg", data: ref } }] }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] }
+        })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 404) { lastErr = "model topilmadi"; continue; }
+      if (!r.ok) {
+        const m = (j.error && j.error.message) || r.statusText;
+        throw new Error(r.status === 400 && /API key/i.test(m) ? "API kaliti noto'g'ri." : r.status === 429 ? "Limit tugadi, birozdan keyin urinib ko'ring." : m);
+      }
+      const part = (j.candidates?.[0]?.content?.parts || []).find(q => q.inlineData || q.inline_data);
+      if (!part) throw new Error("AI rasm qaytarmadi. Boshqa rasm bilan urinib ko'ring.");
+      const data = part.inlineData || part.inline_data;
+      const url = `data:${data.mimeType || data.mime_type || "image/png"};base64,${data.data}`;
+      $("aiImg").src = url; $("aiSave").href = url; $("aiOut").style.display = "block";
+      $("aiNote").textContent = "✅ Tayyor!";
+      return;
+    }
+    throw new Error(lastErr);
+  } catch (e) {
+    $("aiNote").textContent = "Xatolik: " + e.message;
+  } finally { $("aiRun").disabled = false; }
+};
+
 // Saytga kirgan zahoti kameraga ruxsat so'raladi
 if (!inApp) setTimeout(() => $("camBtn").click(), 300);
 else msg("Bu ilova ichida kamera ishlamaydi. Havolani Chrome yoki Safari'da oching.");
-window.__afeks = { setG: (c, P) => { garment = c; garmentBox = { x: 0, y: 0, w: c.width, h: c.height }; gPose = P; fit = {}; }, drawGarment, loadImage, setType: t => (type = t), ctx, out };
 </script>
 </body>
 </html>
