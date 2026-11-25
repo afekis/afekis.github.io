@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="only light">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#ffffff">
+<meta name="darkreader-lock">
 <title>Quvvat Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -13,8 +17,9 @@
    PICTURE: blue hero with live calorie ring; faint logo watermark behind pages
    COLOUR and TYPE: white, blue #1f5eff, red #e5252a for today's tasks; one simple font (Manrope)
    LAYOUT: nav to every section; client pages after login; coach panel for videos and clients */
-:root{color-scheme:light;--green:#16a34a;--bg:#fff;--soft:#f1f5ff;--ink:#0b1a3a;--mute:#56627d;--line:#dfe6f5;--blue:#1f5eff;--blued:#1546c9;--sky:#5aa9ff;--red:#e5252a;--redsoft:#fff0f0}
-:root[data-theme=dark]{color-scheme:light}
+:root{color-scheme:only light;--green:#16a34a;--bg:#fff;--soft:#f1f5ff;--ink:#0b1a3a;--mute:#56627d;--line:#dfe6f5;--blue:#1f5eff;--blued:#1546c9;--sky:#5aa9ff;--red:#e5252a;--redsoft:#fff0f0}
+:root[data-theme=dark]{color-scheme:only light}
+html,body{color-scheme:only light;background:#f4f6fb;forced-color-adjust:none;-webkit-forced-color-adjust:none}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Manrope,system-ui,sans-serif;overflow-x:clip}
 h1,h2,h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;line-height:1.15;text-wrap:balance;margin:0 0 .4em}
