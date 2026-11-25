@@ -159,12 +159,12 @@ body.admin header{background:#0b1a3a;border-color:#0b1a3a}body.admin header .log
 .tcard{position:fixed;left:50%;transform:translateX(-50%);width:min(380px,calc(100% - 24px));background:#fff;border-radius:20px;padding:18px;box-shadow:0 20px 50px rgba(8,20,60,.35)}
 .tcard h3{margin:2px 0 6px}.tcard p{margin:0 0 12px;color:var(--mute)}.tnum{font-size:12px;font-weight:800;color:var(--acc)}.trow{display:flex;gap:6px;align-items:center}.tcard #tskip{border:0;padding:0 4px;color:var(--mute);font-weight:600}
 @keyframes tring{0%{box-shadow:0 0 0 0 rgba(255,255,255,.75)}100%{box-shadow:0 0 0 16px rgba(255,255,255,0)}}
-@keyframes ttap{0%,100%{transform:translate(10px,14px) scale(1)}45%{transform:translate(0,0) scale(1)}55%{transform:translate(0,0) scale(.86)}70%{transform:translate(0,0) scale(1)}}
-@keyframes tclick{0%,44%{transform:scale(.2);opacity:0}55%{transform:scale(.5);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+@keyframes ttap{0%{transform:translate(22px,34px) rotate(-10deg) scale(1);filter:drop-shadow(10px 16px 10px rgba(0,0,0,.35));opacity:0}18%{opacity:1}40%{transform:translate(0,0) rotate(-4deg) scale(1);filter:drop-shadow(8px 12px 8px rgba(0,0,0,.35))}50%{transform:translate(1px,3px) rotate(-4deg) scale(.93);filter:drop-shadow(2px 3px 2px rgba(0,0,0,.45))}62%{transform:translate(0,0) rotate(-4deg) scale(1);filter:drop-shadow(8px 12px 8px rgba(0,0,0,.35))}85%{transform:translate(0,0) rotate(-4deg) scale(1);opacity:1}100%{transform:translate(22px,34px) rotate(-10deg) scale(1);opacity:0}}
+@keyframes tclick{0%,48%{transform:scale(.2);opacity:0}52%{transform:scale(.45);opacity:.95}80%{transform:scale(2.4);opacity:0}100%{opacity:0}}
 @keyframes tin{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
-.tring{position:fixed;border-radius:16px;pointer-events:none;animation:tring 1.4s ease-out infinite}
-.thand{position:fixed;width:42px;height:42px;pointer-events:none;z-index:2;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35));animation:ttap 1.4s ease-in-out infinite;transform-origin:20px 8px}.thand svg{width:100%;height:100%}
-.tclick{position:fixed;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.85);pointer-events:none;animation:tclick 1.4s ease-out infinite}
+.tring{position:fixed;border-radius:16px;pointer-events:none;animation:tring 2.2s ease-out infinite}
+.thand{position:fixed;width:54px;height:68px;pointer-events:none;z-index:2;animation:ttap 2.2s cubic-bezier(.45,0,.25,1) infinite;transform-origin:20px 4px}.thand svg{width:100%;height:100%}
+.tclick{position:fixed;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(170,200,255,.5) 60%,transparent 70%);pointer-events:none;animation:tclick 2.2s ease-out infinite}
 .tcard{animation:tin .35s ease-out}
 @media(prefers-reduced-motion:reduce){.tspot{transition:none}.tring,.thand,.tclick,.tcard{animation:none}}
 /* splash (UyChizma uslubida) */
@@ -340,7 +340,7 @@ table{font-size:14px}
 <nav class="tabbar" id="links" aria-label="Menyu"></nav>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <script>
 const APP='client';
 {
@@ -667,7 +667,7 @@ el.scrollIntoView({block:'center',behavior:'instant'});setTimeout(()=>drawStep(e
 function drawStep(el,s){let o=$('#tourov');if(!o){o=document.createElement('div');o.id='tourov';document.body.appendChild(o)}
 const r=el.getBoundingClientRect(),pad=6,vh=innerHeight,top=Math.max(4,r.top-pad),bot=Math.min(vh-4,r.bottom+pad);
 const cx=r.left+Math.min(r.width*.55,r.width-14),cy=Math.min(bot-12,top+Math.min((bot-top)/2,70));
-o.innerHTML=`<div class="tspot" style="top:${top}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${Math.max(20,bot-top)}px"></div><div class="tring" style="top:${top}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${Math.max(20,bot-top)}px"></div><div class="tclick" style="top:${cy-14}px;left:${cx-14}px"></div><div class="thand" style="top:${cy-6}px;left:${cx-18}px"><svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5h.5V8.5a1.5 1.5 0 0 1 3 0V10h.5V9.5a1.5 1.5 0 0 1 3 0V15c0 3.5-2.5 6-6 6h-1c-2 0-3.3-.8-4.4-2.2L4.6 15a1.5 1.5 0 0 1 2.3-1.9L9 15z" fill="#fff" stroke="#0b1a3a" stroke-width="1.3" stroke-linejoin="round"/></svg></div><div class="tcard" style="visibility:hidden;top:0"><div class="tnum">${tour.i+1} / ${tour.L.length}</div><h3>${s.t}</h3><p>${s.d}</p><div class="trow"><button class="btn ghost sm" id="tskip">O'tkazib yuborish</button><span style="flex:1"></span>${tour.i?'<button class="btn ghost sm" id="tprev">Orqaga</button>':''}<button class="btn sm" id="tnext">${tour.i===tour.L.length-1?'Tushunarli':'Keyingi'}</button></div></div>`;
+o.innerHTML=`<div class="tspot" style="top:${top}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${Math.max(20,bot-top)}px"></div><div class="tring" style="top:${top}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${Math.max(20,bot-top)}px"></div><div class="tclick" style="top:${cy-14}px;left:${cx-14}px"></div><div class="thand" style="top:${cy-3}px;left:${cx-20}px"><svg viewBox="0 0 64 80"><defs><linearGradient id="tsk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8d9c0"/><stop offset=".55" stop-color="#eab896"/><stop offset="1" stop-color="#cf9270"/></linearGradient></defs><g fill="url(#tsk)" stroke="#8f5c40" stroke-width="1.6" stroke-linejoin="round"><path d="M51 40v-1a4.5 4.5 0 0 1 9 0v10"/><path d="M41 36v-2a5 5 0 0 1 10 0v8"/><path d="M30 34v-4a5.5 5.5 0 0 1 11 0v8"/><path d="M18 38c0-3-1-6-4-8-3-2-7 0-6 4l5 14c3 9 9 16 19 18h8c11 0 20-8 20-20V44H18z"/><path d="M18 40V10a6 6 0 0 1 12 0v28"/></g><path d="M20.6 8a3.4 3 0 0 1 6.8 0v3.4h-6.8z" fill="#fdebdd" stroke="#c99677" stroke-width=".8"/><path d="M22 18v14M44 46c-3 2-8 2-11 0" stroke="#c48a68" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".6"/></svg></div><div class="tcard" style="visibility:hidden;top:0"><div class="tnum">${tour.i+1} / ${tour.L.length}</div><h3>${s.t}</h3><p>${s.d}</p><div class="trow"><button class="btn ghost sm" id="tskip">O'tkazib yuborish</button><span style="flex:1"></span>${tour.i?'<button class="btn ghost sm" id="tprev">Orqaga</button>':''}<button class="btn sm" id="tnext">${tour.i===tour.L.length-1?'Tushunarli':'Keyingi'}</button></div></div>`;
 const c=o.querySelector('.tcard'),ch=c.offsetHeight,y=bot+12+ch<vh-8?bot+12:top-12-ch>8?top-12-ch:Math.max(8,vh-ch-96);c.style.top=y+'px';c.style.visibility='visible';
 $('#tnext').onclick=()=>{if(tour.i<tour.L.length-1){tour.i++;showStep()}else endTour()};
 const p=$('#tprev');if(p)p.onclick=()=>{tour.i--;showStep()};$('#tskip').onclick=endTour}
@@ -821,6 +821,7 @@ $('#q').addEventListener('input',()=>{sel=null;renderRes()});$('#fq').addEventLi
 $('#add').addEventListener('click',()=>{if(sets().photoReq&&!mPhoto){toast('Avval ovqat rasmini oling');$('#snap').scrollIntoView({block:'center'});return}const qv=$('#q').value.trim().toLowerCase();const name=sel||(qv&&(FOODS.find(f=>f[0].toLowerCase().includes(qv))||[])[0]);const g=+$('#gr').value;if(!name){toast("Avval taom tanlang");return}if(!(g>0)){toast('Grammni kiriting');return}const d=db.get(key(),{items:[],water:0,done:{}});const it={f:name,g,m:$('#meal').value};if(mPhoto)it.ph=mPhoto;d.items.push(it);db.set(key(),d);clearSnap();sel=null;$('#q').value='';renderKundalik();toast(name+" qo'shildi")});
 window.addEventListener('hashchange',route);
 renderFoods();refresh();
+setTimeout(()=>{if(document.body.classList.contains('booting')){document.body.classList.remove('booting');maybeTour()}},2500);
 (async()=>{try{const {data:{session}}=await sb.auth.getSession();me=session?session.user.id:null;await loadAll();coach=db.get('coach',coach)||coach;syncPlans();
 if(me&&APP==='client'){user=users()[me]||null}
 if(me&&APP==='admin'){const {data:ok}=await sb.rpc('is_admin');coachIn=!!ok;if(!ok)await sb.auth.signOut()}
