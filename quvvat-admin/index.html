@@ -155,6 +155,11 @@ body.admin header{background:#0b1a3a;border-color:#0b1a3a}body.admin header .log
 .adm{background:var(--soft);border-radius:18px;padding:2px 16px;margin-bottom:10px}.adm>summary{list-style:none;padding:14px 0;font-weight:800;font-size:17px;display:flex;justify-content:space-between}.adm>summary::after{content:"+";color:var(--acc);font-size:22px;line-height:1}.adm[open]>summary::after{content:"−"}.adm[open]{padding-bottom:14px}.adm label input,.adm label select,.adm label textarea{background:#fff}
 .bigbtn{min-height:58px;font-size:16px;border-radius:16px;margin:0}
 .vc .vact{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-top:6px}
+#tourov{position:fixed;inset:0;z-index:90}
+.tspot{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(8,20,60,.62);outline:3px solid #fff;transition:all .25s;pointer-events:none}
+.tcard{position:fixed;left:50%;transform:translateX(-50%);width:min(380px,calc(100% - 24px));background:#fff;border-radius:20px;padding:18px;box-shadow:0 20px 50px rgba(8,20,60,.35)}
+.tcard h3{margin:2px 0 6px}.tcard p{margin:0 0 12px;color:var(--mute)}.tnum{font-size:12px;font-weight:800;color:var(--acc)}.trow{display:flex;gap:6px;align-items:center}.tcard #tskip{border:0;padding:0 4px;color:var(--mute);font-weight:600}
+@media(prefers-reduced-motion:reduce){.tspot{transition:none}}
 body.booting main{opacity:.35;pointer-events:none;transition:opacity .2s}
 .vwrap{position:relative;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.vwrap video{display:block;width:100%}
 .vwm{position:absolute;top:20%;left:10%;color:rgba(255,255,255,.55);font:700 13px Manrope,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none;transition:top 1.2s,left 1.2s;white-space:nowrap;z-index:2}
@@ -417,7 +422,7 @@ function renderAd(){const S=sets(),box=$('#topad');if(!box)return;if(APP!=='clie
 box.innerHTML=`<div class="topad"><span>${esc(S.adText)}</span><span style="display:flex;gap:6px;align-items:center">${S.adBtn&&/^https:\/\//i.test(S.adLink)?`<a class="btn sm w" href="${esc(S.adLink)}" target="_blank" rel="noopener">${esc(S.adBtn)}</a>`:''}<button class="x" id="adx" aria-label="Yopish">×</button></span></div>`}
 function renderNav(){renderBrand();renderAd();setTimeout(renderNavBadges,0);document.body.classList.toggle('guest',!user&&!coachIn);if(user&&!coachIn)document.body.dataset.tpl=analyze(user).goal;else delete document.body.dataset.tpl;const L=APP==='admin'?(coachIn?[['panel','Mijozlar'],['chat','Chat'],['tolov',"To'lov"],['kontent','Vazifa'],['hisobot','Hisobot'],['sozlama','Sozlama']]:[]):user?[['bosh','Bosh'],['jadval','Jadval'],['kundalik','Kundalik'],['videolar','Video'],['profil','Profil']]:[['bosh','Bosh'],['videolar','Video'],['ovqatlar','Ovqatlar'],['obuna','Narxlar']];
 $('#links').innerHTML=L.map(l=>`<a href="#${l[0]}" data-v="${l[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[l[0]==='bosh'&&coachIn?'bosh':l[0]]}</svg>${l[1]}</a>`).join('');
-$('#who').innerHTML=APP==='admin'&&!coachIn?'':coachIn?`<a href="#chat" class="chatbtn" aria-label="Chat" style="background:rgba(255,255,255,.12);color:#fff"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><button class="btn ghost sm" id="cout">Chiqish</button>`:user?`<a href="#chat" class="chatbtn" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><a href="#profil" class="av" style="width:40px;height:40px;border-radius:12px;font-size:15px">${user.photo?`<img src="${esc(ph(user.photo))}" alt="">`:esc(user.name[0])}</a><button class="btn ghost sm" id="out">Chiqish</button>`:`<button class="btn ghost sm" data-auth="in">Kirish</button><button class="btn sm" data-auth="up">Ro'yxatdan o'tish</button>`;
+$('#who').innerHTML=APP==='admin'&&!coachIn?'':coachIn?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="background:rgba(255,255,255,.12);color:#fff;font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat" style="background:rgba(255,255,255,.12);color:#fff"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><button class="btn ghost sm" id="cout">Chiqish</button>`:user?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><a href="#profil" class="av" style="width:40px;height:40px;border-radius:12px;font-size:15px">${user.photo?`<img src="${esc(ph(user.photo))}" alt="">`:esc(user.name[0])}</a><button class="btn ghost sm" id="out">Chiqish</button>`:`<button class="btn ghost sm" data-auth="in">Kirish</button><button class="btn sm" data-auth="up">Ro'yxatdan o'tish</button>`;
 }
 function ringSvg(p,col,bg){return`<svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="68" fill="none" stroke="${bg}" stroke-width="16"/><circle cx="80" cy="80" r="68" fill="none" stroke="${col}" stroke-width="16" stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="${427-427*Math.min(1,p)}"/></svg>`}
 function macs(t,a,c){c=c||['#1f5eff','#e5252a','#5aa9ff'];return[['Oqsil',t.p,a.pr,c[0]],["Yog'",t.fa,a.fat,c[1]],['Uglevod',t.c,a.carb,c[2]]].map(m=>`<div class="mac"><div><span>${m[0]}</span><span>${fmt(m[1])} / ${m[2]} g</span></div><div class="bar"${c[3]?' style="background:rgba(255,255,255,.2)"':''}><i style="width:${Math.min(100,m[1]/m[2]*100)}%;background:${m[3]}"></i></div></div>`).join('')}
@@ -583,7 +588,46 @@ function route(){let v=(location.hash||'').slice(1);if(APP==='admin'){if(!VIEWS.
 $$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));$$('#links a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
 ({bosh:renderBosh,profil:renderProfil,jadval:renderJadval,kundalik:renderKundalik,videolar:renderVideos,obuna:renderPlans,chat:renderChatC})[v]?.();window.scrollTo(0,0)}
 function rerender(){const v=(location.hash||'').slice(1);if(APP==='admin'){renderPanel();return}({chat:renderChatC,bosh:renderBosh,profil:renderProfil,jadval:renderJadval,videolar:renderVideos,panel:renderPanel})[v]?.()}
-function refresh(){renderNav();route()}
+/* ---- yo'riqnoma (tour) ---- */
+const TOUR_C=[
+ {v:'bosh',sel:'#herotxt',t:'Bosh sahifa',d:"Bu yerda bugungi holatingiz: maqsadingiz, qancha kaloriya qolgani va keyingi vazifa."},
+ {v:'bosh',sel:'#flowbox',t:'Jarayon va ustoz videolari',d:"Qizil blok — ustoz bugun ko'rishni so'ragan majburiy video. «Ko'rish»ni bosing, oxirigacha ko'rsangiz yashil bo'ladi."},
+ {v:'profil',sel:'.panel.redp',t:'Bugungi vazifalar',d:"Qizil — hali qilinmagan, yashil — bajarildi. Kaloriya, oqsil, suv va videolar o'zi belgilanadi."},
+ {v:'profil',sel:'[data-snapai]',t:'Ovqat rasmi',d:"Yegan ovqatingizni rasmga oling — kaloriyasi hisoblanib, kundalikka qo'shiladi."},
+ {v:'profil',sel:'[data-water1]',t:'Suv',d:"Har stakan suv ichganda «+1» ni bosing."},
+ {v:'profil',sel:'#repbox',t:'Mashq videosi',d:"Mashq qilayotganingizni videoga olib ustozga yuboring — u ko'rib javob beradi."},
+ {sel:'.tabbar a[data-v=jadval]',t:'Jadval',d:"Tana tahlili (yog' foizi) va hafta-ba-hafta rejangiz: qachon qaysi vaznda bo'lasiz."},
+ {sel:'.tabbar a[data-v=kundalik]',t:'Kundalik',d:"Barcha ovqatlaringiz ro'yxati, kaloriya halqasi va suv."},
+ {sel:'.tabbar a[data-v=videolar]',t:'Videolar',d:"Ustoz videolari bo'lim-bo'lim: Oyoq, Ko'krak, Kardio… Har bo'limda nechtasini ko'rganingiz yoziladi."},
+ {sel:'.chatbtn[href="#chat"]',t:'Chat',d:"Ustozga savol yozing yoki rasm yuboring. Javob kelsa qizil raqam chiqadi."},
+ {sel:'#helpbtn',t:'Yordam',d:"Bu qo'llanmani qayta ko'rish uchun «?» ni bosing. Omad!"}];
+const TOUR_A=[
+ {v:'panel',sel:'.astats',t:'Umumiy holat',d:"Mijozlar soni, pullik mijozlar, tasdiq kutayotgan to'lovlar va yangi mashq videolari."},
+ {v:'panel',sel:'#panelbox .scroll',t:'Mijozlar',d:"Mijozni bosing — tahlili, ovqat rasmlari, ko'rgan videolari, tarifi va izoh yozish ochiladi."},
+ {sel:'.tabbar a[data-v=chat]',t:'Chat',d:"Istalgan mijozga yozing, rasm yuboring."},
+ {sel:'.tabbar a[data-v=tolov]',t:"To'lov",d:"Mijoz yuborgan chekni ko'rib «Tasdiqlash»ni bosing — obuna 30 kunga ochiladi."},
+ {sel:'.tabbar a[data-v=kontent]',t:'Vazifa',d:"Video yuklang va vazifa bering: hammaga yoki bitta mijozga, har kuni yoki aniq kunga. «Majburiy» videoni mijoz ko'rishi shart."},
+ {sel:'.tabbar a[data-v=hisobot]',t:'Hisobot',d:"Mijozlar yuborgan mashq videolari. Ko'rib javob yozing."},
+ {sel:'.tabbar a[data-v=sozlama]',t:'Sozlama',d:"Karta raqami, narxlar, reklama, ustoz profili va parol."},
+ {sel:'#helpbtn',t:'Yordam',d:"Qo'llanmani qayta ko'rish uchun «?» ni bosing."}];
+let tour=null,tourAuto=false;
+const tSeenK=()=>'qv_tour_'+APP+'_'+(APP==='admin'?'a':(user&&user.id)||'');
+function tSeen(){try{return localStorage.getItem(tSeenK())==='1'}catch(e){return false}}
+function tMark(){try{localStorage.setItem(tSeenK(),'1')}catch(e){}}
+function startTour(){const L=APP==='admin'?TOUR_A:TOUR_C;tour={L,i:0};document.body.classList.add('touring');showStep()}
+function endTour(){tMark();tour=null;document.body.classList.remove('touring');const o=$('#tourov');if(o)o.remove()}
+function showStep(){if(!tour)return;const s=tour.L[tour.i];if(s.v&&(location.hash||'').slice(1)!==s.v){location.hash='#'+s.v}
+setTimeout(()=>{if(!tour)return;let el=document.querySelector(s.sel);if(!el||!el.getClientRects().length){if(tour.i<tour.L.length-1){tour.i++;showStep()}else endTour();return}
+el.scrollIntoView({block:'center',behavior:'instant'});setTimeout(()=>drawStep(el,s),60)},s.v?380:60)}
+function drawStep(el,s){let o=$('#tourov');if(!o){o=document.createElement('div');o.id='tourov';document.body.appendChild(o)}
+const r=el.getBoundingClientRect(),pad=6,vh=innerHeight,top=Math.max(4,r.top-pad),bot=Math.min(vh-4,r.bottom+pad);
+o.innerHTML=`<div class="tspot" style="top:${top}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${Math.max(20,bot-top)}px"></div><div class="tcard" style="visibility:hidden;top:0"><div class="tnum">${tour.i+1} / ${tour.L.length}</div><h3>${s.t}</h3><p>${s.d}</p><div class="trow"><button class="btn ghost sm" id="tskip">O'tkazib yuborish</button><span style="flex:1"></span>${tour.i?'<button class="btn ghost sm" id="tprev">Orqaga</button>':''}<button class="btn sm" id="tnext">${tour.i===tour.L.length-1?'Tushunarli':'Keyingi'}</button></div></div>`;
+const c=o.querySelector('.tcard'),ch=c.offsetHeight,y=bot+12+ch<vh-8?bot+12:top-12-ch>8?top-12-ch:Math.max(8,vh-ch-96);c.style.top=y+'px';c.style.visibility='visible';
+$('#tnext').onclick=()=>{if(tour.i<tour.L.length-1){tour.i++;showStep()}else endTour()};
+const p=$('#tprev');if(p)p.onclick=()=>{tour.i--;showStep()};$('#tskip').onclick=endTour}
+addEventListener('resize',()=>{if(tour)showStep()});
+function maybeTour(){if(tour||tourAuto)return;const ok=APP==='admin'?coachIn:!!user;if(!ok||tSeen())return;tourAuto=true;setTimeout(startTour,900)}
+function refresh(){renderNav();route();maybeTour()}
 function openPay(p){const S=sets(),pend=db.get('payments',[]).find(x=>x.uid===user.id&&x.status==='kutilmoqda');rcPhoto=null;
 $('#paybox').innerHTML=pend?`<h3>To'lov tekshirilmoqda</h3><p>${esc(pend.plan)} — ${fmt(pend.amount)} so'm. Admin tasdiqlagach obuna ochiladi.</p>`:!S.card?`<h3>${esc(p[0])}</h3><p>Karta orqali to'lov hali sozlanmagan. Admin bilan bog'laning${coach&&coach.tg?': '+esc(coach.tg):''}.</p>`:
 `<h3>${esc(p[0])} — ${fmt(p[1])} so'm</h3><ol class="steps2"><li>Shu kartaga o'tkazing</li><li>Chek rasmini yuboring</li><li>Admin tasdiqlaydi — obuna ochiladi</li></ol>
@@ -639,7 +683,8 @@ return`<div class="stats"><div class="stat"><small>Ko'rilgan video</small><b>${t
 let mPhoto=null,rcPhoto=null,repFile=null,adClosed=false,logoTaps=[];function clearSnap(){mPhoto=null;$('#mphoto').value='';$('#snapin').innerHTML=`<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="4"/></svg><b>Rasmga olish</b><small>ustoz ko'radi</small>`}
 function photoTo(file,cb,sz){const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),s=sz||240,m=Math.min(img.width,img.height);c.width=c.height=s;c.getContext('2d').drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,s,s);cb(c.toDataURL('image/jpeg',.8))};img.src=r.result};r.readAsDataURL(file)}
 
-document.addEventListener('click',e=>{const t=e.target.closest('.ssave,#topen,#vcancel,#ladd,#tadd,[data-tdel],[data-play],#vpclose,[data-snapai],[data-water1],[data-chat],#cback,#csend,#adx,[data-rep],#copycard,#paysend,#repsend,[data-pok],[data-pno],[data-vreq],[data-rrep],#clplan,#ssave,#pwsave,[data-mode],[data-por],#oadd,#radd,[data-rdel],[data-pre],[data-watch],[data-auth],[data-t],[data-plan],[data-vc],[data-w],[data-del],[data-vdel],[data-cl],.ri,#out,#cout,#close,#pclose,#demoPay,#saveprof,#copen,#cclose,#csave,#vadd,#clsave');if(!t)return;
+document.addEventListener('click',e=>{const t=e.target.closest('#helpbtn,.ssave,#topen,#vcancel,#ladd,#tadd,[data-tdel],[data-play],#vpclose,[data-snapai],[data-water1],[data-chat],#cback,#csend,#adx,[data-rep],#copycard,#paysend,#repsend,[data-pok],[data-pno],[data-vreq],[data-rrep],#clplan,#ssave,#pwsave,[data-mode],[data-por],#oadd,#radd,[data-rdel],[data-pre],[data-watch],[data-auth],[data-t],[data-plan],[data-vc],[data-w],[data-del],[data-vdel],[data-cl],.ri,#out,#cout,#close,#pclose,#demoPay,#saveprof,#copen,#cclose,#csave,#vadd,#clsave');if(!t)return;
+if(t.id==='helpbtn'){startTour();return}
 if(t.dataset.chat){selChat=t.dataset.chat;if((location.hash||'')==='#chat'){e.preventDefault();renderPanel('chat')}return}
 if(t.id==='cback'){selChat=null;e.preventDefault();renderPanel('chat');return}
 if(t.id==='csend'){const tx=$('#cin').value.trim();if(!tx&&!chatPhoto)return;sendMsg(t.dataset.uid,t.dataset.me,tx,chatPhoto);chatPhoto=null;$('#cin').value='';$('#cpv').innerHTML='';APP==='admin'?renderPanel('chat'):renderChatC();setTimeout(()=>$('#cin')&&$('#cin').focus(),30);return}
