@@ -457,7 +457,7 @@ function renderAd(){const S=sets(),box=$('#topad');if(!box)return;if(APP!=='clie
 box.innerHTML=`<div class="topad"><span>${esc(S.adText)}</span><span style="display:flex;gap:6px;align-items:center">${S.adBtn&&/^https:\/\//i.test(S.adLink)?`<a class="btn sm w" href="${esc(S.adLink)}" target="_blank" rel="noopener">${esc(S.adBtn)}</a>`:''}<button class="x" id="adx" aria-label="Yopish">×</button></span></div>`}
 function renderNav(){renderBrand();renderAd();setTimeout(renderNavBadges,0);document.body.classList.toggle('guest',!user&&!coachIn);if(user&&!coachIn)document.body.dataset.tpl=analyze(user).goal;else delete document.body.dataset.tpl;const L=APP==='admin'?(coachIn?[['panel','Mijozlar'],['chat','Chat'],['tolov',"To'lov"],['kontent','Vazifa'],['hisobot','Hisobot'],['sozlama','Sozlama']]:[]):user?[['bosh','Bosh'],['jadval','Jadval'],['kundalik','Kundalik'],['videolar','Video'],['profil','Profil']]:[['bosh','Bosh'],['videolar','Video'],['ovqatlar','Ovqatlar'],['obuna','Narxlar']];
 $('#links').innerHTML=L.map(l=>`<a href="#${l[0]}" data-v="${l[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[l[0]==='bosh'&&coachIn?'bosh':l[0]]}</svg>${l[1]}</a>`).join('');
-$('#who').innerHTML=APP==='admin'&&!coachIn?'':coachIn?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="background:rgba(255,255,255,.12);color:#fff;font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat" style="background:rgba(255,255,255,.12);color:#fff"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><button class="btn ghost sm" id="cout">Chiqish</button>`:user?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><a href="#profil" class="av" style="width:40px;height:40px;border-radius:12px;font-size:15px">${user.photo?`<img src="${esc(ph(user.photo))}" alt="">`:esc(user.name[0])}</a><button class="btn ghost sm" id="out">Chiqish</button>`:`<button class="btn ghost sm" data-auth="in">Kirish</button><button class="btn sm" data-auth="up">Ro'yxatdan o'tish</button>`;
+$('#who').innerHTML=APP==='admin'&&!coachIn?'':coachIn?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="background:rgba(255,255,255,.12);color:#fff;font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat" style="background:rgba(255,255,255,.12);color:#fff"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><button class="btn ghost sm" id="cout">Chiqish</button>`:user?`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="font:800 18px Manrope,sans-serif">?</button><a href="#chat" class="chatbtn" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="chatbadge" hidden></span></a><a href="#profil" class="av" style="width:40px;height:40px;border-radius:12px;font-size:15px">${user.photo?`<img src="${esc(ph(user.photo))}" alt="">`:esc(user.name[0])}</a><button class="btn ghost sm" id="out">Chiqish</button>`:`<button class="chatbtn" id="helpbtn" aria-label="Yordam" style="font:800 18px Manrope,sans-serif">?</button><button class="btn ghost sm" data-auth="in">Kirish</button><button class="btn sm" data-auth="up">Ro'yxatdan o'tish</button>`;
 }
 function ringSvg(p,col,bg){return`<svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="68" fill="none" stroke="${bg}" stroke-width="16"/><circle cx="80" cy="80" r="68" fill="none" stroke="${col}" stroke-width="16" stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="${427-427*Math.min(1,p)}"/></svg>`}
 function macs(t,a,c){c=c||['#1f5eff','#e5252a','#5aa9ff'];return[['Oqsil',t.p,a.pr,c[0]],["Yog'",t.fa,a.fat,c[1]],['Uglevod',t.c,a.carb,c[2]]].map(m=>`<div class="mac"><div><span>${m[0]}</span><span>${fmt(m[1])} / ${m[2]} g</span></div><div class="bar"${c[3]?' style="background:rgba(255,255,255,.2)"':''}><i style="width:${Math.min(100,m[1]/m[2]*100)}%;background:${m[3]}"></i></div></div>`).join('')}
@@ -636,6 +636,16 @@ const TOUR_C=[
  {sel:'.tabbar a[data-v=videolar]',t:'Videolar',d:"Ustoz videolari bo'lim-bo'lim: Oyoq, Ko'krak, Kardio… Har bo'limda nechtasini ko'rganingiz yoziladi."},
  {sel:'.chatbtn[href="#chat"]',t:'Chat',d:"Ustozga savol yozing yoki rasm yuboring. Javob kelsa qizil raqam chiqadi."},
  {sel:'#helpbtn',t:'Yordam',d:"Bu qo'llanmani qayta ko'rish uchun «?» ni bosing. Omad!"}];
+const TOUR_G=[
+ {v:'bosh',sel:'#heroph',t:'10 soniyada bilib oling',d:"Bo'y, vazn va orzu vazningizni yozing — necha haftada maqsadga yetishingiz va kunlik kaloriya darhol chiqadi."},
+ {v:'bosh',sel:'[data-pre]',t:"To'liq jadval",d:"Shu tugmani bosib ro'yxatdan o'ting — tana tahlili va hafta-ba-hafta jadvalingiz tayyor bo'ladi."},
+ {v:'bosh',sel:'#flowbox',t:'Siz nima olasiz',d:"Tana tahlili, shaxsiy jadval, ustoz videolari va kunlik vazifalar."},
+ {v:'bosh',sel:'#coachbox',t:'Ustozingiz',d:"Sizni shu ustoz olib boradi: videolar beradi, chatda javob beradi."},
+ {v:'bosh',sel:'#sellbox .plans',t:'Narxlar',d:"Bepul boshlaysiz. Premium — to'liq jadval, kundalik va barcha videolar."},
+ {sel:'.tabbar a[data-v=videolar]',t:'Videolar',d:"Ustozning mashq videolari bo'lim-bo'lim."},
+ {sel:'.tabbar a[data-v=ovqatlar]',t:'Ovqatlar',d:"Osh, lag'mon, somsa va boshqa taomlarning kaloriyasi."},
+ {sel:'#who [data-auth=up]',t:"Ro'yxatdan o'tish",d:"Boshlash uchun shu yerni bosing. Kirgach, sayt sizga qolgan hammasini ham ko'rsatadi."},
+ {sel:'#helpbtn',t:'Yordam',d:"Bu qo'llanmani qayta ko'rish uchun «?» ni bosing."}];
 const TOUR_A=[
  {v:'panel',sel:'.astats',t:'Umumiy holat',d:"Mijozlar soni, pullik mijozlar, tasdiq kutayotgan to'lovlar va yangi mashq videolari."},
  {v:'panel',sel:'#panelbox .scroll',t:'Mijozlar',d:"Mijozni bosing — tahlili, ovqat rasmlari, ko'rgan videolari, tarifi va izoh yozish ochiladi."},
@@ -646,10 +656,10 @@ const TOUR_A=[
  {sel:'.tabbar a[data-v=sozlama]',t:'Sozlama',d:"Karta raqami, narxlar, reklama, ustoz profili va parol."},
  {sel:'#helpbtn',t:'Yordam',d:"Qo'llanmani qayta ko'rish uchun «?» ni bosing."}];
 let tour=null,tourAuto=false;
-const tSeenK=()=>'qv_tour_'+APP+'_'+(APP==='admin'?'a':(user&&user.id)||'');
+const tSeenK=()=>'qv_tour_'+APP+'_'+(APP==='admin'?'a':user?user.id:'guest');
 function tSeen(){try{return localStorage.getItem(tSeenK())==='1'}catch(e){return false}}
 function tMark(){try{localStorage.setItem(tSeenK(),'1')}catch(e){}}
-function startTour(){const L=APP==='admin'?TOUR_A:TOUR_C;tour={L,i:0};document.body.classList.add('touring');showStep()}
+function startTour(){const L=APP==='admin'?TOUR_A:user?TOUR_C:TOUR_G;tour={L,i:0};document.body.classList.add('touring');showStep()}
 function endTour(){tMark();tour=null;document.body.classList.remove('touring');const o=$('#tourov');if(o)o.remove()}
 function showStep(){if(!tour)return;const s=tour.L[tour.i];if(s.v&&(location.hash||'').slice(1)!==s.v){location.hash='#'+s.v}
 setTimeout(()=>{if(!tour)return;let el=document.querySelector(s.sel);if(!el||!el.getClientRects().length){if(tour.i<tour.L.length-1){tour.i++;showStep()}else endTour();return}
@@ -662,7 +672,7 @@ const c=o.querySelector('.tcard'),ch=c.offsetHeight,y=bot+12+ch<vh-8?bot+12:top-
 $('#tnext').onclick=()=>{if(tour.i<tour.L.length-1){tour.i++;showStep()}else endTour()};
 const p=$('#tprev');if(p)p.onclick=()=>{tour.i--;showStep()};$('#tskip').onclick=endTour}
 addEventListener('resize',()=>{if(tour)showStep()});
-function maybeTour(){if(tour||tourAuto)return;const ok=APP==='admin'?coachIn:!!user;if(!ok||tSeen())return;tourAuto=true;setTimeout(startTour,900)}
+let tourWho='';function maybeTour(){const who=APP==='admin'?(coachIn?'a':''):user?user.id:'guest';if(!who||tour||tourWho===who||tSeen())return;if(document.body.classList.contains('booting')){return}tourWho=who;const go=()=>{if(document.getElementById('splash')){setTimeout(go,300);return}if(!tour&&!tSeen())startTour()};setTimeout(go,700)}
 function refresh(){renderNav();route();maybeTour()}
 function openPay(p){const S=sets(),pend=db.get('payments',[]).find(x=>x.uid===user.id&&x.status==='kutilmoqda');rcPhoto=null;
 $('#paybox').innerHTML=pend?`<h3>To'lov tekshirilmoqda</h3><p>${esc(pend.plan)} — ${fmt(pend.amount)} so'm. Admin tasdiqlagach obuna ochiladi.</p>`:!S.card?`<h3>${esc(p[0])}</h3><p>Karta orqali to'lov hali sozlanmagan. Admin bilan bog'laning${coach&&coach.tg?': '+esc(coach.tg):''}.</p>`:
